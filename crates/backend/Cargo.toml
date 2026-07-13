@@ -1,0 +1,19 @@
+[package]
+name    = "backend"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+shared     = { workspace = true }
+tokio      = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+uuid       = { workspace = true }
+chrono     = { workspace = true }
+tracing            = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+axum         = "0.7"
+tower-http   = { version = "0.5", features = ["cors", "trace"] }
+sqlx         = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "macros"] }
+dotenvy      = "0.15"

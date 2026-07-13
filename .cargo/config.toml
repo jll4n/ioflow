@@ -1,0 +1,6 @@
+[alias]
+# Build the com-bridge as x86 (required — Control Expert COM server is 32-bit)
+build-bridge = "build -p com-bridge --target i686-pc-windows-msvc"
+check-bridge = "check -p com-bridge --target i686-pc-windows-msvc"
+# Build with real UDE COM calls (requires UDE installed + x86 toolchain)
+build-bridge-com = "build -p com-bridge --target i686-pc-windows-msvc --features com"

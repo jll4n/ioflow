@@ -1,0 +1,24 @@
+[package]
+name    = "com-bridge"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = []
+# Active les vrais appels COM/UDE. Requiert : UDE installé + toolchain i686-pc-windows-msvc.
+# Build : cargo build-bridge-com  (alias défini dans .cargo/config.toml)
+com = ["dep:windows"]
+
+[dependencies]
+shared     = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+tracing    = { workspace = true }
+
+# Optionnel — uniquement activé avec la feature "com"
+windows = { version = "0.58", optional = true, features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_System_Ole",
+    "Win32_System_Variant",
+] }
