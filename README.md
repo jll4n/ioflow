@@ -1,0 +1,174 @@
+# ioflow
+
+> CI/CD pour projets d'automatisme Schneider Electric (Control Expert / Unity Pro)
+
+**Statut : spike / MVP en cours — pas encore production-ready.**
+
+---
+
+## Problème adressé
+
+Les projets automates Modicon (M340, M580, Quantum, Premium) sont aujourd'hui versionnés
+à la main : copies de fichiers, noms du type `projet_v3_final_DEF.stu`, sans diff lisible,
+sans compilation automatique, sans traçabilité des changements avant un déploiement sur site.
+
+ioflow vise à apporter aux bureaux d'études et intégrateurs une chaîne CI/CD adaptée à
+Control Expert : compilation automatique à chaque commit, rapport d'erreurs/warnings, et
+diff structurel entre deux versions d'un projet.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────┐
+│   Poste client (Windows)    │
+│                             │
+│  ┌─────────────────────┐    │
+│  │ Agent (x64)         │    │
+│  │  └─ com-bridge (x86)│◄───┼──── pull jobs (HTTPS)
+│  │     └─ COM/UDE      │    │
+│  └─────────────────────┘    │
+└─────────────────────────────┘
+              ▲
+              │
+┌─────────────┴───────────────┐
+│  Backend cloud (Axum)       │
+│  - API REST                 │
+│  - File de jobs             │
+│  - Rapports / historique    │
+└─────────────┬───────────────┘
+              │
+┌─────────────┴───────────────┐
+│  PostgreSQL                 │
+│  orgs, users, projects,     │
+│  agents, jobs, diagnostics  │
+└─────────────────────────────┘
+```
+
+Principe clé : le backend cloud n'exécute jamais Control Expert. Les agents tournent
+chez les clients, sur des machines sous licence, et viennent chercher du travail en
+polling (modèle "self-hosted runner", à la GitHub Actions).
+
+### Pourquoi un processus x86 séparé (`com-bridge`) ?
+
+L'API COM/UDE de Control Expert expose des interfaces 32 bits uniquement. L'agent
+principal tourne en x64 (pour bénéficier de l'écosystème Rust moderne). La solution
+retenue est de spawner un sous-processus x86 dédié (`com-bridge.exe`) et de
+communiquer avec lui via JSON newline-delimited sur stdin/stdout. Voir
+[docs/decisions/001-com-bridge-x86.md](docs/decisions/001-com-bridge-x86.md).
+
+---
+
+## Crates
+
+| Crate | Rôle |
+|---|---|
+| `shared` | Types communs agent ↔ backend : `Job`, `JobStatus`, `JobResult`, `Diagnostic`, protocoles HTTP et IPC |
+| `backend` | API Axum : enregistrement d'agents, polling de jobs, mise à jour de statut, health check |
+| `agent` | Daemon x64 : polling toutes les 5 s, orchestration du `com-bridge`, remontée des résultats |
+| `com-bridge` | Binaire x86 : reçoit des commandes JSON (Ping / OpenProject / Build / CloseProject), exécute les appels COM/UDE |
+| `cli` | Outil ligne de commande (stub) |
+
+---
+
+## Endpoints backend (API v1)
+
+| Méthode | Route | Description |
+|---|---|---|
+| `GET` | `/health` | Health check |
+| `POST` | `/api/v1/agents/register` | Enregistrement d'un agent |
+| `GET` | `/api/v1/jobs/poll` | Prochain job en file (polling agent) |
+| `POST` | `/api/v1/jobs/{id}/status` | Mise à jour du statut / résultat d'un job |
+
+---
+
+## Protocole IPC agent ↔ com-bridge
+
+Commandes envoyées par l'agent sur stdin du com-bridge (JSON, une ligne par message) :
+
+```json
+{ "Ping": {} }
+{ "OpenProject": { "path": "C:\\projets\\mon_projet.stu" } }
+{ "Build": {} }
+{ "CloseProject": {} }
+```
+
+Réponses retournées sur stdout :
+
+```json
+{ "Pong": {} }
+{ "ProjectOpened": {} }
+{ "BuildResult": { "success": true, "diagnostics": [], "duration_ms": 4200 } }
+{ "ProjectClosed": {} }
+{ "Error": { "message": "..." } }
+```
+
+---
+
+## Schéma base de données
+
+Tables PostgreSQL définies dans [migrations/0001_init.sql](migrations/0001_init.sql) :
+`organizations`, `users`, `projects`, `agents`, `jobs`, `diagnostics`.
+
+---
+
+## Lancer le projet (développement)
+
+**Prérequis :** Rust stable, PostgreSQL, `sqlx-cli`.
+
+```bash
+# Copier et adapter les variables d'environnement
+cp .env.example .env
+
+# Appliquer les migrations
+sqlx migrate run
+
+# Lancer le backend
+cargo run -p backend
+
+# Lancer l'agent (Windows uniquement)
+cargo run -p agent
+```
+
+Le `com-bridge` est compilé en cible `i686-pc-windows-msvc` :
+
+```bash
+cargo build -p com-bridge --target i686-pc-windows-msvc
+```
+
+Sans la feature `com` (par défaut), le com-bridge retourne des résultats mockés —
+utile pour développer sans Control Expert installé.
+
+---
+
+## État d'avancement
+
+- [x] Workspace Cargo (5 crates)
+- [x] Schéma PostgreSQL initial
+- [x] Types partagés (`Job`, `JobResult`, `Diagnostic`, protocoles HTTP/IPC)
+- [x] Squelette backend Axum avec routes agent/jobs
+- [x] Agent : boucle de polling + orchestration com-bridge
+- [x] Com-bridge : IPC JSON stdin/stdout + stubs COM/UDE
+- [ ] Persistance DB dans le backend (routes actuellement stubées)
+- [ ] Appels COM/UDE réels (nécessite UDE installé sur machine de test)
+- [ ] Dashboard web (htmx)
+- [ ] Auth (sessions + argon2)
+- [ ] CLI fonctionnelle
+
+### Inconnues techniques (spikes à mener)
+
+- **UDE** : disponibilité et état de maintenance réels (liens cassés signalés en 2023)
+- **PLCopenXML** : support sur Control Expert classique (vs. Machine Expert/CODESYS)
+- **Licence** : un build = une licence Control Expert sur la machine agent → modèle tarifaire à définir
+- **CGU Schneider** : à valider avant tout service commercial basé sur l'automatisation de leur logiciel
+
+---
+
+## Stack
+
+- **Rust** (workspace Cargo unique)
+- **Axum** — API backend
+- **PostgreSQL + sqlx** — base de données (requêtes vérifiées à la compilation)
+- **windows-rs** — appels COM/OLE vers UDE (com-bridge)
+- **GitHub Actions** — CI du projet lui-même (à venir)
