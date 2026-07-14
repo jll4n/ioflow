@@ -204,17 +204,141 @@ saas-control-expert/
   `docs/recherche-technique.md`, avant d'être considérées comme acquises dans
   l'architecture.
 
+## Module prioritaire : stu-vcs (gestionnaire de versions STU)
+
+Avant toute intégration COM/cloud, le chantier actif est un outil CLI "git-like"
+pour versionner les fichiers `.stu` localement, sans dépendance à Control Expert.
+
+### Analyse du format STU (résultats du spike du 2026-07-14)
+
+Un fichier `.stu` est une **archive ZIP** contenant :
+
+| Fichier / dossier | Format | Lisible ? | Intérêt pour le diff |
+|---|---|---|---|
+| `Project_Definition.xpdf` | XML **chiffré** (Schneider Level 255) | ✗ | Hash uniquement |
+| `Project_Settings.xso` | XML clair | ✓ | Diff XML complet |
+| `*.db` (ASPROG, ASROOT, VariableManager…) | Format propriétaire "eXc" (magic `eXc\r\n`) | ✗ | Hash uniquement |
+| `backend/gen/asm_son/*.asm` | ASM 32-bit généré | ✓ | Diff texte (révèle sections modifiées) |
+| `BinAppli/*.ap{b,d,x}` | Binaire compilé | ✗ | Hash uniquement |
+| `*.CTX`, `*.ODB` | Formats propriétaires binaires | ✗ | Hash uniquement |
+| `IOS/*.bmp` | Bitmap | ✗ | Hash uniquement |
+
+Conséquences directes :
+- Le contenu programme (logique ladder, FBD, SFC…) est **chiffré côté Schneider**
+  → on ne peut pas proposer de diff sémantique sans passer par l'API UDE.
+- On peut néanmoins tracker **quels fichiers ont changé** entre deux versions,
+  proposer un diff textuel sur les fichiers lisibles, et stocker les snapshots
+  de façon déduplicatée (contenu-adressé par SHA-256).
+- Les fichiers `.asm` générés révèlent des noms de sections et leur contenu
+  assembleur → indice partiel des blocs modifiés même sans déchiffrement.
+
+### Architecture du VCS (nouveau crate `crates/stu-vcs`)
+
+**Modèle objet (inspiré de Git, simplifié) :**
+
+```
+Blob    = SHA-256(contenu brut du fichier)
+Tree    = { "nom_fichier": blob_hash, ... }  → sérialisé en JSON, stocké comme blob
+Commit  = { parent: Option<Hash>, tree: Hash, message: String,
+            author: String, timestamp: DateTime<Utc> }
+```
+
+**Layout du dépôt local :**
+
+```
+.ioflow/
+  HEAD                   # "ref: refs/heads/main" ou hash direct
+  config.toml            # [repo] name ; [user] name, email
+  refs/
+    heads/
+      main               # hash SHA-256 du dernier commit
+  objects/               # store contenu-adressé
+    ab/
+      cdef1234…          # contenu brut (blob, tree JSON, commit JSON)
+```
+
+**Stratégie de diff par type de fichier :**
+
+| Fichier | Stratégie |
+|---|---|
+| `*.xso` | Diff XML structurel (element/attribut) |
+| `*.asm` | Diff texte ligne à ligne |
+| `*.xpdf` (chiffré) | "contenu chiffré — modifié : oui/non" |
+| `*.db`, `*.CTX`, `*.ODB` | "binaire propriétaire — modifié : oui/non, Δtaille" |
+| `*.apb/apd/apx`, `*.bmp` | "binaire — modifié : oui/non, Δtaille" |
+
+**Commandes CLI cibles (`ioflow` dans `crates/cli`) :**
+
+```
+ioflow init [--path <dir>]                    # initialise un dépôt dans .ioflow/
+ioflow snapshot <fichier.stu> [-m "message"]  # crée un commit à partir d'un STU
+ioflow log                                    # historique des commits
+ioflow show <hash>                            # détail d'un commit (fichiers modifiés)
+ioflow diff <hash1> <hash2>                   # diff entre deux commits
+ioflow restore <hash> -o <sortie.stu>         # recrée un STU depuis un snapshot
+ioflow status <fichier.stu>                   # compare un STU contre HEAD
+```
+
+**Modules internes du crate `stu-vcs` :**
+
+```
+crates/stu-vcs/
+  src/
+    lib.rs
+    stu.rs          # parsing STU (extraction ZIP, inventaire des fichiers)
+    objects.rs      # store contenu-adressé (SHA-256, lecture/écriture blobs)
+    tree.rs         # objet Tree (serialisation JSON du snapshot de fichiers)
+    commit.rs       # objet Commit (parent, tree, métadonnées)
+    repo.rs         # gestion du dépôt (init, HEAD, refs)
+    diff.rs         # moteur de diff inter-commits (dispatch par type)
+    xml_diff.rs     # diff XML pour *.xso
+```
+
+### Arborescence cible mise à jour
+
+```
+ioflow/
+├── crates/
+│   ├── shared/          # types Job/Protocol partagés agent↔backend
+│   ├── backend/         # API Axum cloud
+│   ├── agent/           # daemon x64 polling
+│   ├── com-bridge/      # sous-processus x86 COM/UDE
+│   ├── stu-vcs/         # ← NOUVEAU : VCS local pour fichiers STU
+│   └── cli/             # ioflow CLI (wraps stu-vcs)
+├── stuexample/          # exemple de STU dézippé (référence reverse engineering)
+├── docs/
+│   ├── decisions/
+│   │   └── 002-stu-format.md   # ← à créer : résultats analyse format STU
+│   └── recherche-technique.md
+└── …
+```
+
 ## État d'avancement
 
-- [ ] Spike : confirmer disponibilité et fonctionnement réel de UDE
-- [ ] Spike : tester un export/compilation piloté par COM depuis un script simple
-      (VBA ou Python) avant de porter en Rust
-- [ ] Spike : PLCopenXML sur Control Expert (pas seulement Machine Expert)
+### Infrastructure existante
+- [x] Workspace Cargo (5 crates : shared, backend, agent, com-bridge, cli)
+- [x] Schéma PostgreSQL initial
+- [x] Types partagés (Job, JobResult, Diagnostic, protocoles HTTP/IPC)
+- [x] Squelette backend Axum avec routes agent/jobs
+- [x] Agent : boucle de polling + orchestration com-bridge
+- [x] Com-bridge : IPC JSON stdin/stdout + stubs COM/UDE
+
+### Chantier actif : stu-vcs
+- [ ] Crate `stu-vcs` (lib) — parsing STU, store objets, modèle commit
+- [ ] `ioflow init` + `ioflow snapshot` (MVP : créer un commit depuis un STU)
+- [ ] `ioflow log` + `ioflow show`
+- [ ] `ioflow diff` (hash-level + diff XML pour xso + diff texte pour asm)
+- [ ] `ioflow restore`
+- [ ] `ioflow status`
+- [ ] ADR `docs/decisions/002-stu-format.md`
+
+### Backlog (post-VCS local)
+- [ ] Persistance DB dans le backend (routes actuellement stubées)
+- [ ] Appels COM/UDE réels (nécessite UDE sur machine de test)
+- [ ] Dashboard web (htmx)
+- [ ] Auth (sessions + argon2)
+- [ ] Spike : PLCopenXML sur Control Expert (vs. Machine Expert)
 - [ ] Validation marché : entretiens avec 5-10 intégrateurs/bureaux d'études
-- [ ] Setup du workspace Cargo (squelette des crates)
-- [ ] MVP backend : CRUD projets + jobs (sans agent réel, mock)
-- [ ] MVP agent : connexion + polling (sans COM réel, mock)
-- [ ] Intégration COM réelle sur une machine de test
 
 ## Questions ouvertes
 
@@ -223,3 +347,5 @@ saas-control-expert/
 - Hébergement cloud cible (VPS simple type Hetzner/OVH, ou PaaS) ?
 - Faut-il un mode "on-premise complet" pour les clients réticents au cloud
   (secteur industriel souvent frileux sur la donnée) ?
+- Le chiffrement Schneider du `xpdf` est-il contournable légalement/techniquement
+  pour proposer un diff sémantique sans UDE ? (probablement non → dépendance UDE assumée)

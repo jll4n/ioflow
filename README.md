@@ -68,7 +68,69 @@ communiquer avec lui via JSON newline-delimited sur stdin/stdout. Voir
 | `backend` | API Axum : enregistrement d'agents, polling de jobs, mise à jour de statut, health check |
 | `agent` | Daemon x64 : polling toutes les 5 s, orchestration du `com-bridge`, remontée des résultats |
 | `com-bridge` | Binaire x86 : reçoit des commandes JSON (Ping / OpenProject / Build / CloseProject), exécute les appels COM/UDE |
-| `cli` | Outil ligne de commande (stub) |
+| `stu-vcs` | Bibliothèque VCS local pour fichiers `.stu` : store contenu-adressé, modèle commit, diff |
+| `cli` | Outil ligne de commande `ioflow` : wraps `stu-vcs` + commandes de gestion de version |
+
+---
+
+## VCS local pour fichiers STU
+
+`ioflow` embarque un gestionnaire de versions "git-like" pour les fichiers `.stu`
+(Control Expert / Unity Pro), utilisable **sans Control Expert installé**.
+
+### Format STU
+
+Un fichier `.stu` est une archive ZIP contenant des fichiers de formats hétérogènes :
+
+| Fichier | Format | Diffable ? |
+|---|---|---|
+| `Project_Definition.xpdf` | XML **chiffré** (Schneider) | hash uniquement |
+| `Project_Settings.xso` | XML clair | diff XML complet |
+| `*.db` (ASPROG, ASROOT…) | Propriétaire "eXc" (Schneider) | hash uniquement |
+| `backend/gen/asm_son/*.asm` | ASM 32-bit généré | diff texte |
+| `BinAppli/*.ap*` | Binaire compilé | hash uniquement |
+| `*.CTX`, `*.ODB` | Propriétaires binaires | hash uniquement |
+
+Le contenu programme (logique ladder, FBD, SFC…) est chiffré par Schneider dans le
+`xpdf`. Un diff sémantique complet nécessite l'API UDE (COM/OLE). Sans UDE, `ioflow`
+traque les changements par hash et propose un diff textuel sur les fichiers lisibles.
+
+### Commandes CLI
+
+```bash
+ioflow init                              # initialise un dépôt .ioflow/
+ioflow snapshot mon_projet.stu -m "..."  # crée un snapshot (commit)
+ioflow log                               # historique
+ioflow show <hash>                       # détail d'un commit
+ioflow diff <hash1> <hash2>             # diff entre deux commits
+ioflow restore <hash> -o sortie.stu     # recrée un STU depuis un snapshot
+ioflow status mon_projet.stu            # compare contre HEAD
+```
+
+Exemple de sortie `ioflow diff` :
+
+```
+Snapshot a3f2c1 → b7e94d  (2026-07-14 10:32 → 2026-07-14 14:05)
+
+Fichiers modifiés :
+  ~ Project_Settings.xso
+  ~ backend/gen/asm_son/code_section_001.asm
+  ~ ASPROG.db  (binaire propriétaire, 48 KB → 51 KB)
+  = Project_Definition.xpdf  (chiffré, hash inchangé)
+
+--- Project_Settings.xso
++++ Project_Settings.xso
+-  <entryvalue ident="unity.NbWarnings" value="500">
++  <entryvalue ident="unity.NbWarnings" value="200">
+```
+
+### Modèle objet interne
+
+```
+Blob    = SHA-256(contenu brut)          → .ioflow/objects/ab/cdef…
+Tree    = JSON { "fichier": blob_hash }  → stocké comme blob
+Commit  = JSON { parent, tree, message, author, timestamp }
+```
 
 ---
 
@@ -144,24 +206,35 @@ utile pour développer sans Control Expert installé.
 
 ## État d'avancement
 
-- [x] Workspace Cargo (5 crates)
+### Infrastructure existante
+- [x] Workspace Cargo (5 crates : shared, backend, agent, com-bridge, cli)
 - [x] Schéma PostgreSQL initial
 - [x] Types partagés (`Job`, `JobResult`, `Diagnostic`, protocoles HTTP/IPC)
 - [x] Squelette backend Axum avec routes agent/jobs
 - [x] Agent : boucle de polling + orchestration com-bridge
 - [x] Com-bridge : IPC JSON stdin/stdout + stubs COM/UDE
+- [x] Analyse format STU (spike 2026-07-14 — voir CLAUDE.md)
+
+### Chantier actif : VCS local (`stu-vcs` + CLI)
+- [ ] Crate `stu-vcs` (lib) — parsing STU, store objets, modèle commit
+- [ ] `ioflow init` + `ioflow snapshot`
+- [ ] `ioflow log` + `ioflow show`
+- [ ] `ioflow diff` (hash + diff XML/texte pour fichiers lisibles)
+- [ ] `ioflow restore` + `ioflow status`
+
+### Backlog (post-VCS local)
 - [ ] Persistance DB dans le backend (routes actuellement stubées)
 - [ ] Appels COM/UDE réels (nécessite UDE installé sur machine de test)
 - [ ] Dashboard web (htmx)
 - [ ] Auth (sessions + argon2)
-- [ ] CLI fonctionnelle
 
-### Inconnues techniques (spikes à mener)
+### Inconnues techniques
 
 - **UDE** : disponibilité et état de maintenance réels (liens cassés signalés en 2023)
+- **Chiffrement xpdf** : contenu programme chiffré → diff sémantique uniquement via UDE
 - **PLCopenXML** : support sur Control Expert classique (vs. Machine Expert/CODESYS)
 - **Licence** : un build = une licence Control Expert sur la machine agent → modèle tarifaire à définir
-- **CGU Schneider** : à valider avant tout service commercial basé sur l'automatisation de leur logiciel
+- **CGU Schneider** : à valider avant tout service commercial
 
 ---
 
