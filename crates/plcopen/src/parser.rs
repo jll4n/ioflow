@@ -88,12 +88,10 @@ fn parse_pou(node: Node) -> Result<Pou, ParseError> {
         })?
         .to_string();
 
-    let pou_type = match node
-        .attribute("pouType")
-        .ok_or(ParseError::MissingAttr {
-            element: "pou",
-            attr: "pouType",
-        })? {
+    let pou_type = match node.attribute("pouType").ok_or(ParseError::MissingAttr {
+        element: "pou",
+        attr: "pouType",
+    })? {
         "program" => PouType::Program,
         "functionBlock" => PouType::FunctionBlock,
         "function" => PouType::Function,
@@ -243,16 +241,8 @@ fn parse_data_type_ref(node: Node) -> Result<DataTypeRef, ParseError> {
                 .filter(|n| tag(n, "dimension"))
                 .map(|d| {
                     Ok(ArrayDimension {
-                        lower: d
-                            .attribute("lower")
-                            .unwrap_or("0")
-                            .parse()
-                            .unwrap_or(0),
-                        upper: d
-                            .attribute("upper")
-                            .unwrap_or("0")
-                            .parse()
-                            .unwrap_or(0),
+                        lower: d.attribute("lower").unwrap_or("0").parse().unwrap_or(0),
+                        upper: d.attribute("upper").unwrap_or("0").parse().unwrap_or(0),
                     })
                 })
                 .collect::<Result<Vec<_>, ParseError>>()?;
@@ -305,9 +295,7 @@ fn parse_ld_network(node: Node) -> Result<LdNetwork, ParseError> {
         match child.tag_name().name() {
             "name" => name = child.text().map(str::to_string),
             "comment" => comment = child.text().map(str::to_string),
-            "leftPowerRail" => {
-                elements_vec.push(LdElement::LeftPowerRail(parse_left_rail(child)?))
-            }
+            "leftPowerRail" => elements_vec.push(LdElement::LeftPowerRail(parse_left_rail(child)?)),
             "rightPowerRail" => {
                 elements_vec.push(LdElement::RightPowerRail(parse_right_rail(child)?))
             }
@@ -485,8 +473,14 @@ fn parse_block_pin(node: Node) -> BlockPin {
         match child.tag_name().name() {
             "relPosition" => {
                 rel_position = RelPosition {
-                    x: child.attribute("x").and_then(|v| v.parse().ok()).unwrap_or(0),
-                    y: child.attribute("y").and_then(|v| v.parse().ok()).unwrap_or(0),
+                    x: child
+                        .attribute("x")
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(0),
+                    y: child
+                        .attribute("y")
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(0),
                 };
             }
             "connectionPointIn" | "connectionPointOut" => {
@@ -517,10 +511,7 @@ fn parse_cp_in(node: Node) -> ConnectionPointIn {
                 rel_position = parse_rel_position(child);
             }
             "connection" => {
-                if let Some(ref_id) = child
-                    .attribute("refLocalId")
-                    .and_then(|v| v.parse().ok())
-                {
+                if let Some(ref_id) = child.attribute("refLocalId").and_then(|v| v.parse().ok()) {
                     connections.push(Connection {
                         ref_local_id: ref_id,
                         formal_parameter: attr_opt(child, "formalParameter"),
@@ -596,9 +587,7 @@ fn parse_il(node: Node) -> IlBody {
 
 fn parse_sfc(node: Node) -> SfcBody {
     SfcBody {
-        raw_xml: node.document().input_text()
-            [node.range()]
-            .to_string(),
+        raw_xml: node.document().input_text()[node.range()].to_string(),
     }
 }
 
@@ -647,8 +636,14 @@ fn parse_position(node: Node) -> Position {
 
 fn parse_rel_position(node: Node) -> RelPosition {
     RelPosition {
-        x: node.attribute("x").and_then(|v| v.parse().ok()).unwrap_or(0),
-        y: node.attribute("y").and_then(|v| v.parse().ok()).unwrap_or(0),
+        x: node
+            .attribute("x")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0),
+        y: node
+            .attribute("y")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0),
     }
 }
 
@@ -829,8 +824,12 @@ mod tests {
     #[test]
     fn connexions_correctes() {
         let project = parse_project(FIXTURE_LD).unwrap();
-        let Body::Ld(ld) = &project.pous[0].body else { panic!() };
-        let LdElement::Contact(c) = &ld.networks[0].elements[1] else { panic!() };
+        let Body::Ld(ld) = &project.pous[0].body else {
+            panic!()
+        };
+        let LdElement::Contact(c) = &ld.networks[0].elements[1] else {
+            panic!()
+        };
 
         let cp_in = c.connection_point_in.as_ref().unwrap();
         assert_eq!(cp_in.connections.len(), 1);

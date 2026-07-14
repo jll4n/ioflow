@@ -1,4 +1,8 @@
-use axum::{extract::Path, routing::{get, post}, Json, Router};
+use axum::{
+    extract::Path,
+    routing::{get, post},
+    Json, Router,
+};
 use shared::protocol::{PollResponse, UpdateJobRequest};
 use uuid::Uuid;
 
