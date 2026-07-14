@@ -5,6 +5,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod config;
 mod routes;
 
+use config::Config;
+
 #[tokio::main]
 async fn main() {
     dotenvy::dotenv().ok();
@@ -16,14 +18,13 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
+    let config = Config::from_env();
+
     let app = Router::new()
         .route("/health", get(|| async { "ok" }))
         .nest("/api/v1", routes::router());
 
-    let addr: SocketAddr = std::env::var("BIND_ADDR")
-        .unwrap_or_else(|_| "0.0.0.0:3000".into())
-        .parse()
-        .expect("invalid BIND_ADDR");
+    let addr: SocketAddr = config.bind_addr.parse().expect("BIND_ADDR invalide");
 
     tracing::info!("listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
