@@ -68,8 +68,9 @@ communiquer avec lui via JSON newline-delimited sur stdin/stdout. Voir
 | `backend` | API Axum : enregistrement d'agents, polling de jobs, mise à jour de statut, health check |
 | `agent` | Daemon x64 : polling toutes les 5 s, orchestration du `com-bridge`, remontée des résultats |
 | `com-bridge` | Binaire x86 : reçoit des commandes JSON (Ping / OpenProject / Build / CloseProject), exécute les appels COM/UDE |
-| `stu-vcs` | Bibliothèque VCS local pour fichiers `.stu` : store contenu-adressé, modèle commit, diff |
-| `cli` | Outil ligne de commande `ioflow` : wraps `stu-vcs` + commandes de gestion de version |
+| `plcopen` | Parseur PLCopenXML (IEC 61131-3 TC6) : types Rust pour LD, FBD, ST, IL, SFC + désérialisation |
+| `stu-vcs` | Bibliothèque VCS local pour fichiers `.stu` : store contenu-adressé SHA-256, modèle commit, diff |
+| `cli` | Binaire `ioflow` : 6 commandes VCS (init, snapshot, log, show, diff, restore) |
 
 ---
 
@@ -206,26 +207,39 @@ utile pour développer sans Control Expert installé.
 
 ## État d'avancement
 
-### Infrastructure existante
-- [x] Workspace Cargo (5 crates : shared, backend, agent, com-bridge, cli)
+### Infrastructure — livrée
+- [x] Workspace Cargo (7 crates : shared, backend, agent, com-bridge, plcopen, stu-vcs, cli)
 - [x] Schéma PostgreSQL initial
 - [x] Types partagés (`Job`, `JobResult`, `Diagnostic`, protocoles HTTP/IPC)
 - [x] Squelette backend Axum avec routes agent/jobs
 - [x] Agent : boucle de polling + orchestration com-bridge
 - [x] Com-bridge : IPC JSON stdin/stdout + stubs COM/UDE
 - [x] Analyse format STU (spike 2026-07-14 — voir CLAUDE.md)
+- [x] CI GitHub Actions (fmt + check + clippy + tests sur Linux ; check com-bridge sur Windows)
 
-### Chantier actif : VCS local (`stu-vcs` + CLI)
-- [ ] Crate `stu-vcs` (lib) — parsing STU, store objets, modèle commit
-- [ ] `ioflow init` + `ioflow snapshot`
-- [ ] `ioflow log` + `ioflow show`
-- [ ] `ioflow diff` (hash + diff XML/texte pour fichiers lisibles)
-- [ ] `ioflow restore` + `ioflow status`
+### VCS local (`stu-vcs` + CLI) — livré
+- [x] Crate `stu-vcs` (lib) — parsing STU ZIP, store SHA-256, modèle commit
+- [x] `ioflow init` + `ioflow snapshot` (avec `--export` PLCopenXML optionnel)
+- [x] `ioflow log` + `ioflow show`
+- [x] `ioflow diff` (hash-level, taille avant/après, étiquettes par type)
+- [x] `ioflow restore`
+- [ ] `ioflow status` — compare un STU local contre HEAD sans commit
+- [ ] `ioflow config` — écrire le nom auteur dans `.ioflow/config.toml`
+- [ ] Tests unitaires `stu-vcs` (fixture STU synthétique)
+- [ ] Diff textuel `.xso` et `.asm` (crate `similar`)
+
+### Parseur PLCopenXML (`plcopen`) — livré
+- [x] Types complets : `Project`, `Pou`, `Interface`, `Variable`, `DataTypeRef`
+- [x] Corps LD complet : contacts NO/NF, bobines SET/RESET, blocs fonctionnels
+- [x] Corps ST/IL : texte brut ; FBD/SFC : stubs
+- [x] 4 tests unitaires avec fixture XML
+- [ ] Renderer SVG : `LdNetwork` → SVG (rendu visuel ladder)
+- [ ] Renderer diff : deux networks → SVG avec highlights rouge/vert
 
 ### Backlog (post-VCS local)
 - [ ] Persistance DB dans le backend (routes actuellement stubées)
 - [ ] Appels COM/UDE réels (nécessite UDE installé sur machine de test)
-- [ ] Dashboard web (htmx)
+- [ ] Dashboard web (htmx) avec rendu ladder
 - [ ] Auth (sessions + argon2)
 
 ### Inconnues techniques
@@ -244,4 +258,8 @@ utile pour développer sans Control Expert installé.
 - **Axum** — API backend
 - **PostgreSQL + sqlx** — base de données (requêtes vérifiées à la compilation)
 - **windows-rs** — appels COM/OLE vers UDE (com-bridge)
-- **GitHub Actions** — CI du projet lui-même (à venir)
+- **roxmltree** — parseur DOM pour PLCopenXML
+- **sha2 / hex** — hashing SHA-256 (VCS)
+- **zip** — lecture/écriture archives STU
+- **clap** — CLI `ioflow`
+- **GitHub Actions** — CI (fmt + clippy + tests Linux, check Windows i686)

@@ -294,23 +294,27 @@ crates/stu-vcs/
     xml_diff.rs     # diff XML pour *.xso
 ```
 
-### Arborescence cible mise à jour
+### Arborescence réelle
 
 ```
 ioflow/
 ├── crates/
-│   ├── shared/          # types Job/Protocol partagés agent↔backend
-│   ├── backend/         # API Axum cloud
-│   ├── agent/           # daemon x64 polling
-│   ├── com-bridge/      # sous-processus x86 COM/UDE
-│   ├── stu-vcs/         # ← NOUVEAU : VCS local pour fichiers STU
-│   └── cli/             # ioflow CLI (wraps stu-vcs)
-├── stuexample/          # exemple de STU dézippé (référence reverse engineering)
+│   ├── shared/       # types Job/Protocol partagés agent↔backend
+│   ├── backend/      # API Axum cloud (routes stubées)
+│   ├── agent/        # daemon x64 polling
+│   ├── com-bridge/   # sous-processus x86 COM/UDE (mocks)
+│   ├── plcopen/      # parseur PLCopenXML (LD, ST, IL, stubs FBD/SFC)
+│   ├── stu-vcs/      # VCS local : store SHA-256, Tree, Commit, diff
+│   └── cli/          # binaire ioflow (init, snapshot, log, show, diff, restore)
+├── stuexample/       # STU dézippé — référence reverse engineering format
 ├── docs/
-│   ├── decisions/
-│   │   └── 002-stu-format.md   # ← à créer : résultats analyse format STU
-│   └── recherche-technique.md
-└── …
+│   └── decisions/    # ADR 001 à 004
+├── .github/
+│   └── workflows/
+│       └── ci.yml    # CI : fmt + check + clippy + tests (Linux + Windows i686)
+├── migrations/       # SQL sqlx
+├── TODO.md           # backlog priorisé
+└── CLAUDE.md         # ce fichier
 ```
 
 ## État d'avancement
@@ -323,18 +327,31 @@ ioflow/
 - [x] Agent : boucle de polling + orchestration com-bridge
 - [x] Com-bridge : IPC JSON stdin/stdout + stubs COM/UDE
 
-### Chantier actif : stu-vcs
-- [ ] Crate `stu-vcs` (lib) — parsing STU, store objets, modèle commit
-- [ ] `ioflow init` + `ioflow snapshot` (MVP : créer un commit depuis un STU)
-- [ ] `ioflow log` + `ioflow show`
-- [ ] `ioflow diff` (hash-level + diff XML pour xso + diff texte pour asm)
-- [ ] `ioflow restore`
-- [ ] `ioflow status`
-- [ ] ADR `docs/decisions/002-stu-format.md`
+### Livré
+
+- [x] Workspace Cargo (7 crates)
+- [x] Schéma PostgreSQL initial + types partagés
+- [x] Backend Axum squelette (routes stubées)
+- [x] Agent polling + com-bridge IPC JSON (mocks)
+- [x] CI GitHub Actions (2 jobs : Linux + Windows i686)
+- [x] Crate `plcopen` : parseur PLCopenXML complet pour LD + ST/IL, stubs FBD/SFC
+- [x] Crate `stu-vcs` : store SHA-256, Tree, Commit, diff par type de fichier
+- [x] CLI `ioflow` : init, snapshot, log, show, diff, restore
+- [x] ADR 001 à 004 dans `docs/decisions/`
+- [x] `TODO.md` à la racine
+
+### En cours / prochaine itération
+
+- [ ] `ioflow status` — comparer STU local contre HEAD sans commit
+- [ ] `ioflow config` — écrire le nom auteur
+- [ ] Tests unitaires `stu-vcs` (fixture STU synthétique)
+- [ ] Diff textuel `.xso` et `.asm` (crate `similar`)
+- [ ] `rustfmt.toml` à la racine (éviter les allers-retours CI fmt)
 
 ### Backlog (post-VCS local)
 - [ ] Persistance DB dans le backend (routes actuellement stubées)
 - [ ] Appels COM/UDE réels (nécessite UDE sur machine de test)
+- [ ] Renderer SVG ladder (`plcopen`)
 - [ ] Dashboard web (htmx)
 - [ ] Auth (sessions + argon2)
 - [ ] Spike : PLCopenXML sur Control Expert (vs. Machine Expert)
