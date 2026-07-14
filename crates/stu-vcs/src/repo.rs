@@ -20,17 +20,12 @@ impl Repo {
     pub fn init(path: &Path) -> Result<Self, VcsError> {
         let ioflow = path.join(".ioflow");
         if ioflow.exists() {
-            return Err(VcsError::AlreadyInitialized(
-                ioflow.display().to_string(),
-            ));
+            return Err(VcsError::AlreadyInitialized(ioflow.display().to_string()));
         }
 
         fs::create_dir_all(ioflow.join("refs").join("heads"))?;
         fs::write(ioflow.join("HEAD"), "ref: refs/heads/main\n")?;
-        fs::write(
-            ioflow.join("config.toml"),
-            "[user]\nname = \"\"\n",
-        )?;
+        fs::write(ioflow.join("config.toml"), "[user]\nname = \"\"\n")?;
 
         let objects = ObjectStore::new(&ioflow);
         objects.init()?;

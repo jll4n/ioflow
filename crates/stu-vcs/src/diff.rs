@@ -4,10 +4,22 @@ use crate::tree::Tree;
 /// Changement sur un fichier entre deux commits.
 #[derive(Debug, Clone)]
 pub enum FileChange {
-    Added { path: String, hash: Hash },
-    Removed { path: String, hash: Hash },
-    Modified { path: String, old_hash: Hash, new_hash: Hash },
-    Unchanged { path: String },
+    Added {
+        path: String,
+        hash: Hash,
+    },
+    Removed {
+        path: String,
+        hash: Hash,
+    },
+    Modified {
+        path: String,
+        old_hash: Hash,
+        new_hash: Hash,
+    },
+    Unchanged {
+        path: String,
+    },
 }
 
 impl FileChange {
@@ -36,9 +48,9 @@ pub fn diff_trees(old: &Tree, new: &Tree) -> Vec<FileChange> {
 
     for (path, new_hash) in &new.files {
         match old.files.get(path) {
-            Some(old_hash) if old_hash == new_hash => changes.push(FileChange::Unchanged {
-                path: path.clone(),
-            }),
+            Some(old_hash) if old_hash == new_hash => {
+                changes.push(FileChange::Unchanged { path: path.clone() })
+            }
             Some(old_hash) => changes.push(FileChange::Modified {
                 path: path.clone(),
                 old_hash: old_hash.clone(),

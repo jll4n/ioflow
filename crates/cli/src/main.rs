@@ -72,7 +72,11 @@ fn main() {
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Commands::Init => cmd_init(),
-        Commands::Snapshot { stu, message, export } => cmd_snapshot(stu, message, export),
+        Commands::Snapshot {
+            stu,
+            message,
+            export,
+        } => cmd_snapshot(stu, message, export),
         Commands::Log => cmd_log(),
         Commands::Show { hash } => cmd_show(hash),
         Commands::Diff { hash1, hash2 } => cmd_diff(hash1, hash2),
@@ -178,7 +182,10 @@ fn cmd_show(prefix: String) -> Result<(), Box<dyn std::error::Error>> {
 
     println!("commit  {hash}");
     println!("auteur  {}", commit.author);
-    println!("date    {}", commit.timestamp.format("%Y-%m-%d %H:%M:%S UTC"));
+    println!(
+        "date    {}",
+        commit.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
+    );
     println!("message {}", commit.message);
     if let Some(p) = &commit.parent {
         println!("parent  {}", short(p));
@@ -204,11 +211,7 @@ fn cmd_diff(prefix1: String, prefix2: String) -> Result<(), Box<dyn std::error::
     let tree1 = repo.read_tree(&commit1.tree)?;
     let tree2 = repo.read_tree(&commit2.tree)?;
 
-    println!(
-        "Diff {} → {}",
-        short(&hash1),
-        short(&hash2)
-    );
+    println!("Diff {} → {}", short(&hash1), short(&hash2));
     println!(
         "     {} → {}",
         commit1.timestamp.format("%Y-%m-%d %H:%M"),
@@ -218,7 +221,10 @@ fn cmd_diff(prefix1: String, prefix2: String) -> Result<(), Box<dyn std::error::
 
     let changes = diff_trees(&tree1, &tree2);
 
-    if !changes.iter().any(|c| !matches!(c, FileChange::Unchanged { .. })) {
+    if !changes
+        .iter()
+        .any(|c| !matches!(c, FileChange::Unchanged { .. }))
+    {
         println!("Aucun changement.");
         return Ok(());
     }
@@ -232,7 +238,11 @@ fn cmd_diff(prefix1: String, prefix2: String) -> Result<(), Box<dyn std::error::
             FileChange::Removed { path, .. } => {
                 println!("  - {} [{}]", path, file_label(path));
             }
-            FileChange::Modified { path, old_hash, new_hash } => {
+            FileChange::Modified {
+                path,
+                old_hash,
+                new_hash,
+            } => {
                 let old_size = repo.objects.read(old_hash).map(|d| d.len()).unwrap_or(0);
                 let new_size = repo.objects.read(new_hash).map(|d| d.len()).unwrap_or(0);
                 println!(
@@ -278,11 +288,7 @@ fn cmd_restore(prefix: String, output: PathBuf) -> Result<(), Box<dyn std::error
     }
 
     StuArchive::write(&files, &output)?;
-    println!(
-        "Restauré depuis {} → {}",
-        short(&hash),
-        output.display()
-    );
+    println!("Restauré depuis {} → {}", short(&hash), output.display());
     Ok(())
 }
 
