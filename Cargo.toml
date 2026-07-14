@@ -5,6 +5,7 @@ members = [
     "crates/agent",
     "crates/com-bridge",
     "crates/plcopen",
+    "crates/stu-vcs",
     "crates/cli",
 ]
 resolver = "2"
@@ -25,3 +26,8 @@ tracing     = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 roxmltree   = "0.20"
 thiserror   = "2"
+sha2        = "0.10"
+hex         = "0.4"
+zip         = "2"
+clap        = { version = "4", features = ["derive"] }
+stu-vcs     = { path = "crates/stu-vcs" }

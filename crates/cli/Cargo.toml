@@ -3,5 +3,12 @@ name    = "cli"
 version.workspace = true
 edition.workspace = true
 
+[[bin]]
+name = "ioflow"
+path = "src/main.rs"
+
 [dependencies]
-shared = { workspace = true }
+stu-vcs    = { workspace = true }
+clap       = { workspace = true }
+chrono     = { workspace = true }
+serde_json = { workspace = true }
