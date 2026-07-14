@@ -1,4 +1,6 @@
 pub struct Config {
+    // Utilisé lors de la connexion sqlx (non câblé en MVP).
+    #[allow(dead_code)]
     pub database_url: String,
     pub bind_addr: String,
 }
