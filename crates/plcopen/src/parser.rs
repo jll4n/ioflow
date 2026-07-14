@@ -593,11 +593,11 @@ fn parse_sfc(node: Node) -> SfcBody {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-fn elements(node: Node) -> impl Iterator<Item = Node> {
+fn elements<'a>(node: Node<'a, 'a>) -> impl Iterator<Item = Node<'a, 'a>> {
     node.children().filter(|n| n.is_element())
 }
 
-fn tag(node: &Node, name: &str) -> bool {
+fn tag(node: &Node<'_, '_>, name: &str) -> bool {
     node.tag_name().name() == name
 }
 
