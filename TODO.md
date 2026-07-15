@@ -1,32 +1,19 @@
 # TODO — ioflow
 
-État au 2026-07-14. Organisé par bloc de priorité décroissante.
+État au 2026-07-15. Organisé par bloc de priorité décroissante.
 
 ---
 
-## Immédiat (avant le prochain push)
+## Bloc 1 — VCS local (`stu-vcs` + CLI)
 
-- [ ] Ajouter `rustfmt.toml` à la racine pour éviter les allers-retours CI/fmt
-  ```toml
-  max_width = 100
-  edition = "2021"
-  ```
-
----
-
-## Bloc 1 — VCS local (`stu-vcs` + CLI) ← chantier actif
-
-### Tests
-- [ ] Tests unitaires `stu-vcs` :
-  - `repo::init` crée la structure `.ioflow/` attendue
-  - `objects::write` + `read` sur un blob simple
-  - `tree` : sérialisation / désérialisation JSON
-  - `diff_trees` : added / removed / modified / unchanged
-  - Scénario complet : init → snapshot → log → diff (avec STU de fixture)
-- [ ] Fixture STU de test (petit zip synthétique, pas le vrai projet Schneider)
+### Livré
+- [x] `rustfmt.toml` à la racine (`max_width = 100`, `edition = "2021"`)
+- [x] 21 tests d'intégration `stu-vcs` (`tests/vcs.rs`) couvrant init, objects,
+      hash, tree, diff, archive, scénarios end-to-end
+- [x] Fixture STU synthétique (ZIP créé programmatiquement dans les tests)
 
 ### Commandes manquantes
-- [ ] `ioflow status <f.stu>` : compare un STU local contre HEAD sans créer de commit
+- [x] `ioflow status <f.stu>` : compare un STU local contre HEAD sans créer de commit
 - [ ] `ioflow config --name "Jean Dupont"` : écrire le nom auteur dans `.ioflow/config.toml`
 
 ### Qualité
@@ -80,7 +67,7 @@
 
 ---
 
-## Bloc 5 — Diff visuel et sémantique
+## Bloc 5 — Diff textuel et sémantique
 
 - [ ] Diff textuel ligne à ligne sur `.xso` (crate `similar`)
 - [ ] Diff textuel sur `.asm` (sections modifiées)

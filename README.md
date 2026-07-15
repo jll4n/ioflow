@@ -223,9 +223,10 @@ utile pour développer sans Control Expert installé.
 - [x] `ioflow log` + `ioflow show`
 - [x] `ioflow diff` (hash-level, taille avant/après, étiquettes par type)
 - [x] `ioflow restore`
-- [ ] `ioflow status` — compare un STU local contre HEAD sans commit
+- [x] `ioflow status` — compare un STU local contre HEAD (calcul éphémère, store non modifié)
+- [x] 21 tests d'intégration (`tests/vcs.rs`) — fixture ZIP synthétique
+- [x] `rustfmt.toml` à la racine — fin des allers-retours CI fmt
 - [ ] `ioflow config` — écrire le nom auteur dans `.ioflow/config.toml`
-- [ ] Tests unitaires `stu-vcs` (fixture STU synthétique)
 - [ ] Diff textuel `.xso` et `.asm` (crate `similar`)
 
 ### Parseur PLCopenXML (`plcopen`) — livré

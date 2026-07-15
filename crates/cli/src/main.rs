@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use chrono::Utc;
 use clap::{Parser, Subcommand};
-use stu_vcs::{diff_trees, file_label, short, Commit, FileChange, Repo, StuArchive, Tree};
+use stu_vcs::{diff_trees, file_label, hash_bytes, short, Commit, FileChange, Repo, StuArchive, Tree};
 
 #[derive(Parser)]
 #[command(
@@ -59,6 +59,12 @@ enum Commands {
         #[arg(short, long, value_name = "SORTIE.stu")]
         output: PathBuf,
     },
+
+    /// Compare un fichier .stu local contre le dernier snapshot (HEAD)
+    Status {
+        /// Fichier .stu à comparer
+        stu: PathBuf,
+    },
 }
 
 fn main() {
@@ -81,6 +87,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Show { hash } => cmd_show(hash),
         Commands::Diff { hash1, hash2 } => cmd_diff(hash1, hash2),
         Commands::Restore { hash, output } => cmd_restore(hash, output),
+        Commands::Status { stu } => cmd_status(stu),
     }
 }
 
@@ -289,6 +296,84 @@ fn cmd_restore(prefix: String, output: PathBuf) -> Result<(), Box<dyn std::error
 
     StuArchive::write(&files, &output)?;
     println!("Restauré depuis {} → {}", short(&hash), output.display());
+    Ok(())
+}
+
+// ─── status ───────────────────────────────────────────────────────────────────
+
+fn cmd_status(stu_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let repo = Repo::open(&std::env::current_dir()?)?;
+
+    let head_hash = match repo.head()? {
+        Some(h) => h,
+        None => {
+            println!("Aucun snapshot — lancez 'ioflow snapshot' d'abord.");
+            return Ok(());
+        }
+    };
+
+    // Tree HEAD
+    let head_commit = repo.read_commit(&head_hash)?;
+    let head_tree = repo.read_tree(&head_commit.tree)?;
+
+    // Tree courant (STU local, non commité)
+    let archive = StuArchive::open(&stu_path)?;
+    let mut current_tree = Tree::new();
+    for (name, data) in &archive.files {
+        current_tree.insert(name.clone(), hash_bytes(data));
+    }
+
+    println!(
+        "HEAD     {} — {}",
+        short(&head_hash),
+        head_commit.message
+    );
+    println!("Fichier  {}", stu_path.display());
+    println!();
+
+    let changes = diff_trees(&head_tree, &current_tree);
+    let has_changes = changes.iter().any(|c| !matches!(c, FileChange::Unchanged { .. }));
+
+    if !has_changes {
+        println!("Aucun changement par rapport au dernier snapshot.");
+        return Ok(());
+    }
+
+    for change in &changes {
+        match change {
+            FileChange::Unchanged { .. } => {}
+            FileChange::Added { path, .. } => {
+                println!("  + {} [{}]", path, file_label(path));
+            }
+            FileChange::Removed { path, .. } => {
+                println!("  - {} [{}]", path, file_label(path));
+            }
+            FileChange::Modified { path, old_hash, new_hash: _ } => {
+                let old_size = repo.objects.read(old_hash).map(|d| d.len()).unwrap_or(0);
+                let new_size = archive.files[path].len();
+                println!(
+                    "  ~ {} [{}]  {} → {}",
+                    path,
+                    file_label(path),
+                    human_size(old_size),
+                    human_size(new_size),
+                );
+            }
+        }
+    }
+
+    let (added, removed, modified) =
+        changes.iter().fold((0usize, 0usize, 0usize), |acc, c| match c {
+            FileChange::Added { .. } => (acc.0 + 1, acc.1, acc.2),
+            FileChange::Removed { .. } => (acc.0, acc.1 + 1, acc.2),
+            FileChange::Modified { .. } => (acc.0, acc.1, acc.2 + 1),
+            FileChange::Unchanged { .. } => acc,
+        });
+    println!();
+    println!(
+        "{} modifié(s), {} ajouté(s), {} supprimé(s) — 'ioflow snapshot' pour committer",
+        modified, added, removed
+    );
     Ok(())
 }
 

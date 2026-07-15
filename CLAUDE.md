@@ -336,17 +336,16 @@ ioflow/
 - [x] CI GitHub Actions (2 jobs : Linux + Windows i686)
 - [x] Crate `plcopen` : parseur PLCopenXML complet pour LD + ST/IL, stubs FBD/SFC
 - [x] Crate `stu-vcs` : store SHA-256, Tree, Commit, diff par type de fichier
-- [x] CLI `ioflow` : init, snapshot, log, show, diff, restore
-- [x] ADR 001 à 004 dans `docs/decisions/`
+- [x] CLI `ioflow` : init, snapshot, log, show, diff, restore, status
+- [x] 21 tests d'intégration `stu-vcs` (fixture ZIP synthétique)
+- [x] `rustfmt.toml` à la racine (`max_width = 100`)
+- [x] ADR 001 à 006 dans `docs/decisions/`
 - [x] `TODO.md` à la racine
 
 ### En cours / prochaine itération
 
-- [ ] `ioflow status` — comparer STU local contre HEAD sans commit
-- [ ] `ioflow config` — écrire le nom auteur
-- [ ] Tests unitaires `stu-vcs` (fixture STU synthétique)
+- [ ] `ioflow config` — écrire le nom auteur dans `.ioflow/config.toml`
 - [ ] Diff textuel `.xso` et `.asm` (crate `similar`)
-- [ ] `rustfmt.toml` à la racine (éviter les allers-retours CI fmt)
 
 ### Backlog (post-VCS local)
 - [ ] Persistance DB dans le backend (routes actuellement stubées)
