@@ -6,8 +6,7 @@ use chrono::Utc;
 use tempfile::TempDir;
 
 use stu_vcs::{
-    diff_trees, file_label, hash_bytes, short, Commit, FileChange, Repo, StuArchive, Tree,
-    VcsError,
+    diff_trees, file_label, hash_bytes, short, Commit, FileChange, Repo, StuArchive, Tree, VcsError,
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -63,11 +62,23 @@ fn init_cree_structure_ioflow() {
     let dir = TempDir::new().unwrap();
     Repo::init(dir.path()).unwrap();
 
-    assert!(dir.path().join(".ioflow").is_dir(), "dossier .ioflow manquant");
+    assert!(
+        dir.path().join(".ioflow").is_dir(),
+        "dossier .ioflow manquant"
+    );
     assert!(dir.path().join(".ioflow/HEAD").is_file(), "HEAD manquant");
-    assert!(dir.path().join(".ioflow/config.toml").is_file(), "config.toml manquant");
-    assert!(dir.path().join(".ioflow/refs/heads").is_dir(), "refs/heads manquant");
-    assert!(dir.path().join(".ioflow/objects").is_dir(), "objects/ manquant");
+    assert!(
+        dir.path().join(".ioflow/config.toml").is_file(),
+        "config.toml manquant"
+    );
+    assert!(
+        dir.path().join(".ioflow/refs/heads").is_dir(),
+        "refs/heads manquant"
+    );
+    assert!(
+        dir.path().join(".ioflow/objects").is_dir(),
+        "objects/ manquant"
+    );
 
     let head = std::fs::read_to_string(dir.path().join(".ioflow/HEAD")).unwrap();
     assert_eq!(head.trim(), "ref: refs/heads/main");
@@ -216,18 +227,26 @@ fn diff_detecte_tous_les_types_de_changement() {
     new.insert("inchange.xso".to_string(), "hash_a".to_string()); // inchangé
     new.insert("modifie.db".to_string(), "hash_b_v2".to_string()); // modifié
     new.insert("ajoute.apx".to_string(), "hash_d".to_string()); // ajouté
-    // "supprime.asm" absent → supprimé
+                                                                // "supprime.asm" absent → supprimé
 
     let changes = diff_trees(&old, &new);
 
-    let unchanged: Vec<_> =
-        changes.iter().filter(|c| matches!(c, FileChange::Unchanged { .. })).collect();
-    let modified: Vec<_> =
-        changes.iter().filter(|c| matches!(c, FileChange::Modified { .. })).collect();
-    let added: Vec<_> =
-        changes.iter().filter(|c| matches!(c, FileChange::Added { .. })).collect();
-    let removed: Vec<_> =
-        changes.iter().filter(|c| matches!(c, FileChange::Removed { .. })).collect();
+    let unchanged: Vec<_> = changes
+        .iter()
+        .filter(|c| matches!(c, FileChange::Unchanged { .. }))
+        .collect();
+    let modified: Vec<_> = changes
+        .iter()
+        .filter(|c| matches!(c, FileChange::Modified { .. }))
+        .collect();
+    let added: Vec<_> = changes
+        .iter()
+        .filter(|c| matches!(c, FileChange::Added { .. }))
+        .collect();
+    let removed: Vec<_> = changes
+        .iter()
+        .filter(|c| matches!(c, FileChange::Removed { .. }))
+        .collect();
 
     assert_eq!(unchanged.len(), 1, "1 fichier inchangé");
     assert_eq!(modified.len(), 1, "1 fichier modifié");
@@ -267,7 +286,9 @@ fn diff_trees_identiques_donne_uniquement_unchanged() {
 
     let changes = diff_trees(&tree, &tree);
     assert!(
-        changes.iter().all(|c| matches!(c, FileChange::Unchanged { .. })),
+        changes
+            .iter()
+            .all(|c| matches!(c, FileChange::Unchanged { .. })),
         "tous les fichiers doivent être Unchanged"
     );
 }
@@ -275,7 +296,10 @@ fn diff_trees_identiques_donne_uniquement_unchanged() {
 #[test]
 fn file_label_retourne_bonne_etiquette() {
     assert_eq!(file_label("Project_Settings.xso"), "XML paramètres");
-    assert_eq!(file_label("Project_Definition.xpdf"), "XML chiffré Schneider");
+    assert_eq!(
+        file_label("Project_Definition.xpdf"),
+        "XML chiffré Schneider"
+    );
     assert_eq!(file_label("ASPROG.db"), "base propriétaire eXc");
     assert_eq!(file_label("code_section_001.asm"), "assembleur généré");
     assert_eq!(file_label("Station.apx"), "binaire compilé");
@@ -445,8 +469,15 @@ fn restore_reproduit_fichiers_originaux() {
     let restored = StuArchive::open(&restored_path).unwrap();
     assert_eq!(restored.files.len(), original_files.len());
     for (name, expected) in original_files {
-        let got = restored.files.get(*name).expect(&format!("{name} manquant"));
-        assert_eq!(got.as_slice(), *expected, "contenu de {name} différent après restore");
+        let got = restored
+            .files
+            .get(*name)
+            .expect(&format!("{name} manquant"));
+        assert_eq!(
+            got.as_slice(),
+            *expected,
+            "contenu de {name} différent après restore"
+        );
     }
 }
 
@@ -476,8 +507,8 @@ fn diff_entre_deux_snapshots() {
             &[
                 ("settings.xso", b"<s version='1'/>"), // inchangé
                 ("prog.db", b"db_v2"),                 // modifié
-                ("nouveau.apx", b"bin"),                // ajouté
-                // "a_supprimer.asm" absent → supprimé
+                ("nouveau.apx", b"bin"),               // ajouté
+                                                       // "a_supprimer.asm" absent → supprimé
             ],
         ),
         "v2",
@@ -489,10 +520,22 @@ fn diff_entre_deux_snapshots() {
     let t2 = repo.read_tree(&c2.tree).unwrap();
     let changes = diff_trees(&t1, &t2);
 
-    let nb_unchanged = changes.iter().filter(|c| matches!(c, FileChange::Unchanged { .. })).count();
-    let nb_modified = changes.iter().filter(|c| matches!(c, FileChange::Modified { .. })).count();
-    let nb_added = changes.iter().filter(|c| matches!(c, FileChange::Added { .. })).count();
-    let nb_removed = changes.iter().filter(|c| matches!(c, FileChange::Removed { .. })).count();
+    let nb_unchanged = changes
+        .iter()
+        .filter(|c| matches!(c, FileChange::Unchanged { .. }))
+        .count();
+    let nb_modified = changes
+        .iter()
+        .filter(|c| matches!(c, FileChange::Modified { .. }))
+        .count();
+    let nb_added = changes
+        .iter()
+        .filter(|c| matches!(c, FileChange::Added { .. }))
+        .count();
+    let nb_removed = changes
+        .iter()
+        .filter(|c| matches!(c, FileChange::Removed { .. }))
+        .count();
 
     assert_eq!(nb_unchanged, 1, "settings.xso inchangé");
     assert_eq!(nb_modified, 1, "prog.db modifié");

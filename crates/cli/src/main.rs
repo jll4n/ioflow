@@ -2,7 +2,9 @@ use std::path::PathBuf;
 
 use chrono::Utc;
 use clap::{Parser, Subcommand};
-use stu_vcs::{diff_trees, file_label, hash_bytes, short, Commit, FileChange, Repo, StuArchive, Tree};
+use stu_vcs::{
+    diff_trees, file_label, hash_bytes, short, Commit, FileChange, Repo, StuArchive, Tree,
+};
 
 #[derive(Parser)]
 #[command(
@@ -323,16 +325,14 @@ fn cmd_status(stu_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         current_tree.insert(name.clone(), hash_bytes(data));
     }
 
-    println!(
-        "HEAD     {} — {}",
-        short(&head_hash),
-        head_commit.message
-    );
+    println!("HEAD     {} — {}", short(&head_hash), head_commit.message);
     println!("Fichier  {}", stu_path.display());
     println!();
 
     let changes = diff_trees(&head_tree, &current_tree);
-    let has_changes = changes.iter().any(|c| !matches!(c, FileChange::Unchanged { .. }));
+    let has_changes = changes
+        .iter()
+        .any(|c| !matches!(c, FileChange::Unchanged { .. }));
 
     if !has_changes {
         println!("Aucun changement par rapport au dernier snapshot.");
@@ -348,7 +348,11 @@ fn cmd_status(stu_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
             FileChange::Removed { path, .. } => {
                 println!("  - {} [{}]", path, file_label(path));
             }
-            FileChange::Modified { path, old_hash, new_hash: _ } => {
+            FileChange::Modified {
+                path,
+                old_hash,
+                new_hash: _,
+            } => {
                 let old_size = repo.objects.read(old_hash).map(|d| d.len()).unwrap_or(0);
                 let new_size = archive.files[path].len();
                 println!(
@@ -363,12 +367,14 @@ fn cmd_status(stu_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let (added, removed, modified) =
-        changes.iter().fold((0usize, 0usize, 0usize), |acc, c| match c {
-            FileChange::Added { .. } => (acc.0 + 1, acc.1, acc.2),
-            FileChange::Removed { .. } => (acc.0, acc.1 + 1, acc.2),
-            FileChange::Modified { .. } => (acc.0, acc.1, acc.2 + 1),
-            FileChange::Unchanged { .. } => acc,
-        });
+        changes
+            .iter()
+            .fold((0usize, 0usize, 0usize), |acc, c| match c {
+                FileChange::Added { .. } => (acc.0 + 1, acc.1, acc.2),
+                FileChange::Removed { .. } => (acc.0, acc.1 + 1, acc.2),
+                FileChange::Modified { .. } => (acc.0, acc.1, acc.2 + 1),
+                FileChange::Unchanged { .. } => acc,
+            });
     println!();
     println!(
         "{} modifié(s), {} ajouté(s), {} supprimé(s) — 'ioflow snapshot' pour committer",
