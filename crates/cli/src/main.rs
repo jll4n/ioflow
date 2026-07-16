@@ -67,6 +67,13 @@ enum Commands {
         /// Fichier .stu à comparer
         stu: PathBuf,
     },
+
+    /// Configure le dépôt (nom de l'auteur, etc.)
+    Config {
+        /// Nom de l'auteur à inscrire dans .ioflow/config.toml
+        #[arg(long, value_name = "NOM")]
+        name: Option<String>,
+    },
 }
 
 fn main() {
@@ -90,6 +97,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Diff { hash1, hash2 } => cmd_diff(hash1, hash2),
         Commands::Restore { hash, output } => cmd_restore(hash, output),
         Commands::Status { stu } => cmd_status(stu),
+        Commands::Config { name } => cmd_config(name),
     }
 }
 
@@ -383,6 +391,23 @@ fn cmd_status(stu_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+// ─── config ───────────────────────────────────────────────────────────────────
+
+fn cmd_config(name: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
+    let repo = Repo::open(&std::env::current_dir()?)?;
+
+    match name {
+        Some(n) => {
+            repo.set_author(&n)?;
+            println!("Auteur configuré : {}", n);
+        }
+        None => {
+            println!("auteur = {}", repo.author());
+        }
+    }
+    Ok(())
+}
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 /// Résout un préfixe de hash (≥ 4 chars) en hash complet.
@@ -393,22 +418,31 @@ fn resolve_prefix(repo: &Repo, prefix: &str) -> Result<String, Box<dyn std::erro
     if prefix.len() < 4 {
         return Err(format!("préfixe trop court (minimum 4 caractères) : {prefix}").into());
     }
-    // Parcours de objects/ pour trouver un hash qui commence par prefix
     let objects_dir = repo.ioflow.join("objects");
     let sub = &prefix[..2];
     let rest = &prefix[2..];
     let dir = objects_dir.join(sub);
+
+    let mut matches = Vec::new();
     if dir.is_dir() {
         for entry in std::fs::read_dir(&dir)? {
             let entry = entry?;
             let name = entry.file_name();
-            let name = name.to_string_lossy();
+            let name = name.to_string_lossy().into_owned();
             if name.starts_with(rest) {
-                return Ok(format!("{sub}{name}"));
+                matches.push(format!("{sub}{name}"));
             }
         }
     }
-    Err(format!("commit introuvable : {prefix}").into())
+
+    match matches.len() {
+        0 => Err(format!("commit introuvable : {prefix}").into()),
+        1 => Ok(matches.remove(0)),
+        n => Err(format!(
+            "préfixe ambigu : {n} commits commencent par '{prefix}' — soyez plus précis"
+        )
+        .into()),
+    }
 }
 
 fn human_size(bytes: usize) -> String {

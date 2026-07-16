@@ -14,11 +14,11 @@
 
 ### Commandes manquantes
 - [x] `ioflow status <f.stu>` : compare un STU local contre HEAD sans créer de commit
-- [ ] `ioflow config --name "Jean Dupont"` : écrire le nom auteur dans `.ioflow/config.toml`
+- [x] `ioflow config --name "Jean Dupont"` : écrire le nom auteur dans `.ioflow/config.toml`
 
 ### Qualité
-- [ ] Résolution de préfixe ambiguë → erreur explicite si plusieurs objets matchent
-- [ ] Message d'erreur lisible si le fichier `.stu` n'est pas un ZIP valide
+- [x] Résolution de préfixe ambiguë → erreur explicite si plusieurs objets matchent
+- [x] Message d'erreur lisible si le fichier `.stu` n'est pas un ZIP valide
 
 ---
 

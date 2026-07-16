@@ -95,6 +95,14 @@ impl Repo {
         Tree::from_bytes(&data).map_err(VcsError::Json)
     }
 
+    /// Écrit le nom de l'auteur dans `.ioflow/config.toml`.
+    pub fn set_author(&self, name: &str) -> Result<(), VcsError> {
+        let config_path = self.ioflow.join("config.toml");
+        let content = format!("[user]\nname = \"{}\"\n", name);
+        fs::write(config_path, content)?;
+        Ok(())
+    }
+
     /// Auteur lu depuis `.ioflow/config.toml`, ou variable d'environnement, ou "unknown".
     pub fn author(&self) -> String {
         if let Ok(content) = fs::read_to_string(self.ioflow.join("config.toml")) {

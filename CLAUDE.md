@@ -344,7 +344,7 @@ ioflow/
 
 ### En cours / prochaine itération
 
-- [ ] `ioflow config` — écrire le nom auteur dans `.ioflow/config.toml`
+- [x] `ioflow config` — écrire le nom auteur dans `.ioflow/config.toml`
 - [ ] Diff textuel `.xso` et `.asm` (crate `similar`)
 
 ### Backlog (post-VCS local)

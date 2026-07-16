@@ -25,4 +25,7 @@ pub enum VcsError {
 
     #[error("aucun commit — faites d'abord 'ioflow snapshot'")]
     NoCommits,
+
+    #[error("'{0}' n'est pas un fichier STU valide (archive ZIP attendue)")]
+    InvalidStu(String),
 }
