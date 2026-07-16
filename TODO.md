@@ -24,11 +24,11 @@
 
 ## Bloc 2 — Backend réel
 
-- [ ] Brancher sqlx sur PostgreSQL (pool dans `AppState`)
+- [x] Brancher sqlx sur PostgreSQL (pool dans `AppState`)
 - [ ] Implémenter les vraies routes :
-  - `POST /api/v1/agents/register` → INSERT en base
-  - `GET  /api/v1/jobs/poll`        → SELECT job queued + UPDATE running
-  - `POST /api/v1/jobs/{id}/status` → UPDATE résultat / diagnostics
+  - `POST /api/v1/agents/register` → INSERT en base (bloqué : nécessite org_id via auth)
+  - [x] `GET  /api/v1/jobs/poll`        → SELECT job queued + UPDATE running (transaction FOR UPDATE SKIP LOCKED)
+  - [x] `POST /api/v1/jobs/{id}/status` → UPDATE résultat / diagnostics
   - `GET  /api/v1/projects`         → CRUD projets
 - [ ] Ajouter service PostgreSQL dans le job CI (+ `SQLX_OFFLINE` ou DB de test)
 - [ ] Auth : sessions + argon2 (inscription / connexion)
