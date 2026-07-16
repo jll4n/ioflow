@@ -300,15 +300,15 @@ crates/stu-vcs/
 ioflow/
 ├── crates/
 │   ├── shared/       # types Job/Protocol partagés agent↔backend
-│   ├── backend/      # API Axum cloud (routes stubées)
-│   ├── agent/        # daemon x64 polling
+│   ├── backend/      # API Axum cloud (routes branchées sqlx/PostgreSQL)
+│   ├── agent/        # daemon x64 polling + registration au démarrage
 │   ├── com-bridge/   # sous-processus x86 COM/UDE (mocks)
 │   ├── plcopen/      # parseur PLCopenXML (LD, ST, IL, stubs FBD/SFC)
 │   ├── stu-vcs/      # VCS local : store SHA-256, Tree, Commit, diff
-│   └── cli/          # binaire ioflow (init, snapshot, log, show, diff, restore)
+│   └── cli/          # binaire ioflow (init, snapshot, log, show, diff, restore, status, config)
 ├── stuexample/       # STU dézippé — référence reverse engineering format
 ├── docs/
-│   └── decisions/    # ADR 001 à 004
+│   └── decisions/    # ADR 001 à 010
 ├── .github/
 │   └── workflows/
 │       └── ci.yml    # CI : fmt + check + clippy + tests (Linux + Windows i686)
@@ -331,20 +331,22 @@ ioflow/
 
 - [x] Workspace Cargo (7 crates)
 - [x] Schéma PostgreSQL initial + types partagés
-- [x] Backend Axum squelette (routes stubées)
-- [x] Agent polling + com-bridge IPC JSON (mocks)
 - [x] CI GitHub Actions (2 jobs : Linux + Windows i686)
 - [x] Crate `plcopen` : parseur PLCopenXML complet pour LD + ST/IL, stubs FBD/SFC
 - [x] Crate `stu-vcs` : store SHA-256, Tree, Commit, diff par type de fichier
-- [x] CLI `ioflow` : init, snapshot, log, show, diff, restore, status
-- [x] 21 tests d'intégration `stu-vcs` (fixture ZIP synthétique)
+- [x] CLI `ioflow` : init, snapshot, log, show, diff, restore, status, config
+- [x] 25 tests d'intégration `stu-vcs` (fixture ZIP synthétique)
 - [x] `rustfmt.toml` à la racine (`max_width = 100`)
-- [x] ADR 001 à 006 dans `docs/decisions/`
+- [x] ADR 001 à 010 dans `docs/decisions/`
 - [x] `TODO.md` à la racine
+- [x] Backend : `AppState { db: PgPool }`, migrations auto au démarrage
+- [x] `GET /api/v1/jobs/poll` — transaction `FOR UPDATE SKIP LOCKED`
+- [x] `POST /api/v1/jobs/{id}/status` — UPDATE + INSERT diagnostics
+- [x] `POST /api/v1/agents/register` — UPSERT (org_id fourni par l'agent)
+- [x] Agent : `Config` (AGENT_ID, ORG_ID, BACKEND_URL), registration au démarrage, agent_id réel dans les résultats
 
 ### En cours / prochaine itération
 
-- [x] `ioflow config` — écrire le nom auteur dans `.ioflow/config.toml`
 - [ ] Diff textuel `.xso` et `.asm` (crate `similar`)
 
 ### Backlog (post-VCS local)

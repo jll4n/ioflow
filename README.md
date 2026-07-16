@@ -65,8 +65,8 @@ communiquer avec lui via JSON newline-delimited sur stdin/stdout. Voir
 | Crate | Rôle |
 |---|---|
 | `shared` | Types communs agent ↔ backend : `Job`, `JobStatus`, `JobResult`, `Diagnostic`, protocoles HTTP et IPC |
-| `backend` | API Axum : enregistrement d'agents, polling de jobs, mise à jour de statut, health check |
-| `agent` | Daemon x64 : polling toutes les 5 s, orchestration du `com-bridge`, remontée des résultats |
+| `backend` | API Axum + sqlx : enregistrement d'agents, polling de jobs (`FOR UPDATE SKIP LOCKED`), mise à jour de statut/diagnostics |
+| `agent` | Daemon x64 : registration au démarrage, polling toutes les 5 s, orchestration du `com-bridge`, remontée des résultats |
 | `com-bridge` | Binaire x86 : reçoit des commandes JSON (Ping / OpenProject / Build / CloseProject), exécute les appels COM/UDE |
 | `plcopen` | Parseur PLCopenXML (IEC 61131-3 TC6) : types Rust pour LD, FBD, ST, IL, SFC + désérialisation |
 | `stu-vcs` | Bibliothèque VCS local pour fichiers `.stu` : store contenu-adressé SHA-256, modèle commit, diff |
@@ -100,12 +100,13 @@ traque les changements par hash et propose un diff textuel sur les fichiers lisi
 
 ```bash
 ioflow init                              # initialise un dépôt .ioflow/
+ioflow config --name "Jean Dupont"       # configure l'auteur des commits
 ioflow snapshot mon_projet.stu -m "..."  # crée un snapshot (commit)
 ioflow log                               # historique
 ioflow show <hash>                       # détail d'un commit
 ioflow diff <hash1> <hash2>             # diff entre deux commits
 ioflow restore <hash> -o sortie.stu     # recrée un STU depuis un snapshot
-ioflow status mon_projet.stu            # compare contre HEAD
+ioflow status mon_projet.stu            # compare contre HEAD sans committer
 ```
 
 Exemple de sortie `ioflow diff` :
@@ -178,19 +179,23 @@ Tables PostgreSQL définies dans [migrations/0001_init.sql](migrations/0001_init
 
 ## Lancer le projet (développement)
 
-**Prérequis :** Rust stable, PostgreSQL, `sqlx-cli`.
+**Prérequis :** Rust stable, PostgreSQL.
 
 ```bash
 # Copier et adapter les variables d'environnement
 cp .env.example .env
+# Variables requises :
+#   DATABASE_URL=postgres://user:pass@localhost/ioflow
+#   BIND_ADDR=0.0.0.0:3000          (optionnel)
 
-# Appliquer les migrations
-sqlx migrate run
-
-# Lancer le backend
+# Lancer le backend (applique les migrations automatiquement au démarrage)
 cargo run -p backend
 
 # Lancer l'agent (Windows uniquement)
+# Variables requises :
+#   AGENT_ID=<uuid stable>    # générer une fois : uuidgen
+#   ORG_ID=<uuid org>
+#   BACKEND_URL=http://localhost:3000
 cargo run -p agent
 ```
 
@@ -211,8 +216,9 @@ utile pour développer sans Control Expert installé.
 - [x] Workspace Cargo (7 crates : shared, backend, agent, com-bridge, plcopen, stu-vcs, cli)
 - [x] Schéma PostgreSQL initial
 - [x] Types partagés (`Job`, `JobResult`, `Diagnostic`, protocoles HTTP/IPC)
-- [x] Squelette backend Axum avec routes agent/jobs
-- [x] Agent : boucle de polling + orchestration com-bridge
+- [x] Backend Axum + sqlx : AppState, pool PgPool, migrations auto au démarrage
+- [x] Routes backend réelles : poll job (`FOR UPDATE SKIP LOCKED`), update status + diagnostics, register agent
+- [x] Agent : registration au démarrage (AGENT_ID, ORG_ID), agent_id réel dans les résultats
 - [x] Com-bridge : IPC JSON stdin/stdout + stubs COM/UDE
 - [x] Analyse format STU (spike 2026-07-14 — voir CLAUDE.md)
 - [x] CI GitHub Actions (fmt + check + clippy + tests sur Linux ; check com-bridge sur Windows)
@@ -224,9 +230,9 @@ utile pour développer sans Control Expert installé.
 - [x] `ioflow diff` (hash-level, taille avant/après, étiquettes par type)
 - [x] `ioflow restore`
 - [x] `ioflow status` — compare un STU local contre HEAD (calcul éphémère, store non modifié)
-- [x] 21 tests d'intégration (`tests/vcs.rs`) — fixture ZIP synthétique
+- [x] `ioflow config --name` — configure l'auteur dans `.ioflow/config.toml`
+- [x] 25 tests d'intégration (`tests/vcs.rs`) — fixture ZIP synthétique
 - [x] `rustfmt.toml` à la racine — fin des allers-retours CI fmt
-- [ ] `ioflow config` — écrire le nom auteur dans `.ioflow/config.toml`
 - [ ] Diff textuel `.xso` et `.asm` (crate `similar`)
 
 ### Parseur PLCopenXML (`plcopen`) — livré
@@ -237,8 +243,7 @@ utile pour développer sans Control Expert installé.
 - [ ] Renderer SVG : `LdNetwork` → SVG (rendu visuel ladder)
 - [ ] Renderer diff : deux networks → SVG avec highlights rouge/vert
 
-### Backlog (post-VCS local)
-- [ ] Persistance DB dans le backend (routes actuellement stubées)
+### Backlog
 - [ ] Appels COM/UDE réels (nécessite UDE installé sur machine de test)
 - [ ] Dashboard web (htmx) avec rendu ladder
 - [ ] Auth (sessions + argon2)

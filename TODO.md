@@ -26,7 +26,7 @@
 
 - [x] Brancher sqlx sur PostgreSQL (pool dans `AppState`)
 - [ ] Implémenter les vraies routes :
-  - `POST /api/v1/agents/register` → INSERT en base (bloqué : nécessite org_id via auth)
+  - [x] `POST /api/v1/agents/register` → UPSERT en base (org_id fourni par l'agent depuis sa config)
   - [x] `GET  /api/v1/jobs/poll`        → SELECT job queued + UPDATE running (transaction FOR UPDATE SKIP LOCKED)
   - [x] `POST /api/v1/jobs/{id}/status` → UPDATE résultat / diagnostics
   - `GET  /api/v1/projects`         → CRUD projets

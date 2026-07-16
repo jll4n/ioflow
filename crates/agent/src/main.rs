@@ -2,8 +2,12 @@ use std::time::Duration;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod bridge_client;
+mod config;
 mod poller;
+mod register;
 mod runner;
+
+use config::Config;
 
 #[tokio::main]
 async fn main() {
@@ -16,25 +20,44 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let backend_url =
-        std::env::var("BACKEND_URL").unwrap_or_else(|_| "http://localhost:3000".into());
-
-    tracing::info!("agent starting, backend = {}", backend_url);
-
+    let cfg = Config::from_env();
+    let hostname = Config::hostname();
     let client = reqwest::Client::new();
 
+    tracing::info!(
+        agent_id = %cfg.agent_id,
+        org_id   = %cfg.org_id,
+        backend  = %cfg.backend_url,
+        "agent démarré"
+    );
+
+    if let Err(e) = register::register(
+        &client,
+        &cfg.backend_url,
+        cfg.agent_id,
+        cfg.org_id,
+        hostname,
+        cfg.version,
+    )
+    .await
+    {
+        tracing::warn!("enregistrement backend échoué (retry au prochain démarrage) : {e}");
+    } else {
+        tracing::info!("agent enregistré");
+    }
+
     loop {
-        match poller::poll(&client, &backend_url).await {
+        match poller::poll(&client, &cfg.backend_url).await {
             Ok(Some(job)) => {
-                tracing::info!(job_id = %job.id, "picked up job");
-                runner::run(&client, &backend_url, job).await;
+                tracing::info!(job_id = %job.id, "job récupéré");
+                runner::run(&client, &cfg.backend_url, job, cfg.agent_id).await;
             }
             Ok(None) => {
-                tracing::debug!("no job available, waiting...");
+                tracing::debug!("aucun job disponible, attente...");
                 tokio::time::sleep(Duration::from_secs(5)).await;
             }
             Err(e) => {
-                tracing::error!("poll error: {e}");
+                tracing::error!("erreur de polling : {e}");
                 tokio::time::sleep(Duration::from_secs(10)).await;
             }
         }

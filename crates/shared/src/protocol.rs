@@ -18,6 +18,7 @@ pub struct UpdateJobRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AgentRegisterRequest {
     pub agent_id: Uuid,
+    pub org_id: Uuid,
     pub hostname: String,
     pub version: String,
 }
