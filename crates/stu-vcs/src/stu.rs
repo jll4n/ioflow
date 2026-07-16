@@ -17,8 +17,8 @@ impl StuArchive {
     /// Ouvre et extrait tous les fichiers d'un `.stu`.
     pub fn open(path: &Path) -> Result<Self, VcsError> {
         let file = std::fs::File::open(path)?;
-        let mut archive = ZipArchive::new(file)
-            .map_err(|_| VcsError::InvalidStu(path.display().to_string()))?;
+        let mut archive =
+            ZipArchive::new(file).map_err(|_| VcsError::InvalidStu(path.display().to_string()))?;
         let mut files = HashMap::new();
 
         for i in 0..archive.len() {

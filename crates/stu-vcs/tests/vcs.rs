@@ -553,7 +553,9 @@ fn test_invalid_stu_error() {
     let bad_file = tmp.path().join("rapport.pdf");
     std::fs::write(&bad_file, b"ce n'est pas un ZIP").unwrap();
 
-    let err = StuArchive::open(&bad_file).err().expect("devrait échouer sur un non-ZIP");
+    let err = StuArchive::open(&bad_file)
+        .err()
+        .expect("devrait échouer sur un non-ZIP");
     assert!(
         matches!(err, VcsError::InvalidStu(_)),
         "attendu VcsError::InvalidStu, obtenu : {err:?}"
