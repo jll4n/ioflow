@@ -38,7 +38,10 @@ async fn main() {
     let state = AppState { db: pool };
 
     let app = Router::new()
-        .route("/", get(|| async { Html(include_str!("../../../web/templates/dashboard.html")) }))
+        .route(
+            "/",
+            get(|| async { Html(include_str!("../../../web/templates/dashboard.html")) }),
+        )
         .route("/health", get(|| async { "ok" }))
         .nest("/api/v1", routes::router())
         .with_state(state);

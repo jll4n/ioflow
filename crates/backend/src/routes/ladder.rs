@@ -226,25 +226,22 @@ async fn fetch_xml(
     state: &AppState,
     hash: &str,
 ) -> Result<String, (StatusCode, Json<serde_json::Value>)> {
-    let row = sqlx::query(
-        "SELECT xml_content FROM plcopen_snapshots WHERE commit_hash = $1",
-    )
-    .bind(hash)
-    .fetch_optional(&state.db)
-    .await
-    .map_err(db_err)?;
+    let row = sqlx::query("SELECT xml_content FROM plcopen_snapshots WHERE commit_hash = $1")
+        .bind(hash)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(db_err)?;
 
-    row.map(|r| r.get::<String, _>("xml_content")).ok_or_else(|| {
-        (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("snapshot '{hash}' introuvable") })),
-        )
-    })
+    row.map(|r| r.get::<String, _>("xml_content"))
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({ "error": format!("snapshot '{hash}' introuvable") })),
+            )
+        })
 }
 
-fn parse_or_err(
-    xml: &str,
-) -> Result<Project, (StatusCode, Json<serde_json::Value>)> {
+fn parse_or_err(xml: &str) -> Result<Project, (StatusCode, Json<serde_json::Value>)> {
     plcopen::parse_project(xml).map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,

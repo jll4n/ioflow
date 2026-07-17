@@ -14,10 +14,16 @@ use super::{element_local_id, svg::render_network_colored, ElemColor};
 /// conservent la position qu'ils avaient dans `a`.
 pub fn render_diff(a: &LdNetwork, b: &LdNetwork) -> String {
     // Clés de contenu sémantique (indépendantes des positions)
-    let a_keys: HashMap<u32, String> =
-        a.elements.iter().map(|e| (element_local_id(e), content_key(e))).collect();
-    let b_keys: HashMap<u32, String> =
-        b.elements.iter().map(|e| (element_local_id(e), content_key(e))).collect();
+    let a_keys: HashMap<u32, String> = a
+        .elements
+        .iter()
+        .map(|e| (element_local_id(e), content_key(e)))
+        .collect();
+    let b_keys: HashMap<u32, String> = b
+        .elements
+        .iter()
+        .map(|e| (element_local_id(e), content_key(e)))
+        .collect();
 
     let b_ids: HashSet<u32> = b_keys.keys().copied().collect();
 
@@ -50,7 +56,10 @@ fn content_key(elem: &LdElement) -> String {
     match elem {
         LdElement::Contact(c) => format!("C:{}:{}:{:?}", c.variable, c.negated, c.edge),
         LdElement::Coil(c) => {
-            format!("L:{}:{}:{:?}:{:?}", c.variable, c.negated, c.storage, c.edge)
+            format!(
+                "L:{}:{}:{:?}:{:?}",
+                c.variable, c.negated, c.storage, c.edge
+            )
         }
         LdElement::Block(b) => format!("B:{}", b.type_name),
         LdElement::LeftPowerRail(_) => "LR".into(),
@@ -165,6 +174,9 @@ mod tests {
         let net_b = make_network("CAP", None, false);
         let svg = render_diff(&net_a, &net_b);
         assert!(svg.contains("#dc2626"), "contact supprimé → rouge");
-        assert!(svg.contains("SECURITE"), "variable supprimée visible dans le SVG");
+        assert!(
+            svg.contains("SECURITE"),
+            "variable supprimée visible dans le SVG"
+        );
     }
 }

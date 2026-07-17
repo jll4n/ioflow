@@ -30,10 +30,7 @@ pub fn render_network(network: &LdNetwork) -> String {
 }
 
 /// Rend un réseau ladder en SVG avec une fonction de colorisation par `localId`.
-pub fn render_network_colored(
-    network: &LdNetwork,
-    color_fn: &dyn Fn(u32) -> ElemColor,
-) -> String {
+pub fn render_network_colored(network: &LdNetwork, color_fn: &dyn Fn(u32) -> ElemColor) -> String {
     // 1. Carte des points de sortie : localId → (svg_x, svg_y)
     let mut out_map: HashMap<u32, (i32, i32)> = HashMap::new();
     for elem in &network.elements {
@@ -154,7 +151,12 @@ fn compute_viewport(elements: &[LdElement]) -> (i32, i32, i32, i32) {
         return (0, 0, 200, 60);
     }
 
-    (min_x - PAD, min_y - PAD, max_x - min_x + PAD * 2, max_y - min_y + PAD * 2)
+    (
+        min_x - PAD,
+        min_y - PAD,
+        max_x - min_x + PAD * 2,
+        max_y - min_y + PAD * 2,
+    )
 }
 
 fn elem_bounds(elem: &LdElement) -> (i32, i32, i32, i32) {
@@ -172,12 +174,22 @@ fn elem_bounds(elem: &LdElement) -> (i32, i32, i32, i32) {
         LdElement::Contact(c) => {
             let x0 = c.position.x * SX;
             let wy = wire_y_c(c);
-            (x0, wy - ELEM_H / 2 - FONT - 2, x0 + CONTACT_W, wy + ELEM_H / 2)
+            (
+                x0,
+                wy - ELEM_H / 2 - FONT - 2,
+                x0 + CONTACT_W,
+                wy + ELEM_H / 2,
+            )
         }
         LdElement::Coil(c) => {
             let x0 = c.position.x * SX;
             let wy = wire_y_l(c);
-            (x0, wy - ELEM_H / 2 - FONT - 2, x0 + COIL_W, wy + ELEM_H / 2)
+            (
+                x0,
+                wy - ELEM_H / 2 - FONT - 2,
+                x0 + COIL_W,
+                wy + ELEM_H / 2,
+            )
         }
         LdElement::Block(b) => {
             let x0 = b.position.x * SX;
@@ -550,7 +562,10 @@ mod tests {
         assert!(svg.contains("<svg"), "doit produire un SVG");
         assert!(svg.contains("CAPTEUR"), "doit contenir le nom de variable");
         assert!(svg.contains("MOTEUR"), "doit contenir le nom de la bobine");
-        assert!(svg.contains("<line") || svg.contains("<polyline"), "doit avoir des fils");
+        assert!(
+            svg.contains("<line") || svg.contains("<polyline"),
+            "doit avoir des fils"
+        );
         assert!(svg.contains("<rect"), "doit avoir des symboles rect");
         // Pas de barre diagonale pour NO
         assert!(
@@ -565,7 +580,10 @@ mod tests {
         let svg = render_network(&net);
         // Le contact NF a une diagonale : deux <line> (un diagonal + les fils)
         let line_count = svg.matches("<line").count();
-        assert!(line_count >= 2, "contact NF doit avoir au moins 2 <line> (fil + diagonale)");
+        assert!(
+            line_count >= 2,
+            "contact NF doit avoir au moins 2 <line> (fil + diagonale)"
+        );
     }
 
     #[test]

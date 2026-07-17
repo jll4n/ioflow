@@ -3,7 +3,6 @@
 ///   target/ladder_diff.svg    — diff entre la version A et B (un contact ajouté)
 ///
 /// Usage : cargo run -p plcopen --example preview
-
 use plcopen::{
     parser::parse_project,
     renderer::{diff::render_diff, svg::render_network},
