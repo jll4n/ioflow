@@ -184,12 +184,7 @@ fn elem_bounds(elem: &LdElement) -> (i32, i32, i32, i32) {
         LdElement::Coil(c) => {
             let x0 = c.position.x * SX;
             let wy = wire_y_l(c);
-            (
-                x0,
-                wy - ELEM_H / 2 - FONT - 2,
-                x0 + COIL_W,
-                wy + ELEM_H / 2,
-            )
+            (x0, wy - ELEM_H / 2 - FONT - 2, x0 + COIL_W, wy + ELEM_H / 2)
         }
         LdElement::Block(b) => {
             let x0 = b.position.x * SX;
