@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>ioflow — Ladder Viewer</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Cascadia Code', 'Fira Mono', monospace;
+      background: #f8f9fa;
+      color: #1a1a1a;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 16px;
+    }
+    h1 { font-size: 1.4rem; margin: 0 0 4px; }
+    .subtitle { color: #666; font-size: 0.85rem; margin-bottom: 24px; }
+    h2 { font-size: 1rem; margin: 24px 0 10px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
+
+    .form-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
+    label { font-size: 0.8rem; color: #555; display: block; margin-bottom: 3px; }
+    textarea {
+      width: 100%; height: 160px;
+      font-family: inherit; font-size: 11px;
+      border: 1px solid #ccc; border-radius: 4px; padding: 6px;
+      resize: vertical;
+    }
+    input[type=text], input[type=number] {
+      font-family: inherit; font-size: 0.9rem;
+      border: 1px solid #ccc; border-radius: 4px; padding: 5px 8px;
+    }
+    input[type=number] { width: 70px; }
+    button {
+      background: #1a1a1a; color: white;
+      border: none; border-radius: 4px;
+      padding: 7px 18px; font-size: 0.9rem; cursor: pointer;
+    }
+    button:hover { background: #333; }
+
+    .output {
+      border: 1px solid #ddd; border-radius: 4px;
+      background: white; padding: 12px;
+      min-height: 80px; overflow-x: auto;
+      margin-top: 10px;
+    }
+    .output p { color: #999; font-size: 0.85rem; margin: 0; }
+
+    .legend {
+      display: flex; gap: 16px; font-size: 0.8rem;
+      margin-top: 8px; color: #555;
+    }
+    .legend span { display: flex; align-items: center; gap: 5px; }
+    .dot {
+      width: 12px; height: 12px; border-radius: 2px;
+      display: inline-block;
+    }
+    .dot-added   { background: #dcfce7; border: 1.5px solid #16a34a; }
+    .dot-removed { background: #fee2e2; border: 1.5px solid #dc2626; }
+    .dot-modified{ background: #fef9c3; border: 1.5px solid #d97706; }
+    .dot-normal  { background: white;   border: 1.5px solid #1a1a1a; }
+
+    .tabs { display: flex; gap: 0; margin-bottom: -1px; }
+    .tab {
+      padding: 6px 16px; border: 1px solid #ddd;
+      border-radius: 4px 4px 0 0; cursor: pointer;
+      background: #f0f0f0; font-size: 0.85rem;
+    }
+    .tab.active { background: white; border-bottom-color: white; }
+    .tab-content { border: 1px solid #ddd; border-radius: 0 4px 4px 4px; background: white; padding: 16px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .htmx-indicator { display: none; color: #888; font-size: 0.8rem; }
+    .htmx-request .htmx-indicator { display: inline; }
+  </style>
+</head>
+<body>
+
+<h1>ioflow</h1>
+<p class="subtitle">Visualiseur Ladder Diagram — PLCopen XML</p>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('single', this)">Afficher</div>
+  <div class="tab" onclick="showTab('diff', this)">Diff</div>
+</div>
+
+<div class="tab-content">
+
+  <!-- ═══ TAB : vue simple ═══ -->
+  <div id="tab-single" class="tab-panel active">
+    <h2>Rendu d'un réseau Ladder</h2>
+    <form hx-post="/api/v1/render/ladder"
+          hx-target="#output-single"
+          hx-swap="innerHTML"
+          hx-indicator="#spinner-single">
+      <div>
+        <label>PLCopen XML</label>
+        <textarea name="xml" placeholder="Collez votre XML PLCopen ici…"></textarea>
+      </div>
+      <div class="form-row" style="margin-top:8px">
+        <div>
+          <label>POU</label>
+          <input type="text" name="pou" placeholder="PROG_CONVOYEUR" style="width:200px"/>
+        </div>
+        <div>
+          <label>Réseau n°</label>
+          <input type="number" name="network" value="0" min="0"/>
+        </div>
+        <button type="submit">Afficher ▶</button>
+        <span class="htmx-indicator" id="spinner-single">Rendu…</span>
+      </div>
+    </form>
+    <div id="output-single" class="output">
+      <p>Collez un PLCopen XML ci-dessus et cliquez sur Afficher.</p>
+    </div>
+  </div>
+
+  <!-- ═══ TAB : diff ═══ -->
+  <div id="tab-diff" class="tab-panel">
+    <h2>Diff visuel entre deux versions</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:10px">
+      <div>
+        <label><strong>Version A</strong> (avant)</label>
+        <textarea name="xml_a" form="form-diff" placeholder="PLCopen XML — version A…"></textarea>
+      </div>
+      <div>
+        <label><strong>Version B</strong> (après)</label>
+        <textarea name="xml_b" form="form-diff" placeholder="PLCopen XML — version B…"></textarea>
+      </div>
+    </div>
+    <form id="form-diff"
+          hx-post="/api/v1/render/ladder-diff"
+          hx-target="#output-diff"
+          hx-swap="innerHTML"
+          hx-indicator="#spinner-diff">
+      <div class="form-row">
+        <div>
+          <label>POU</label>
+          <input type="text" name="pou" placeholder="PROG_CONVOYEUR" style="width:200px"/>
+        </div>
+        <div>
+          <label>Réseau n°</label>
+          <input type="number" name="network" value="0" min="0"/>
+        </div>
+        <button type="submit">Comparer ▶</button>
+        <span class="htmx-indicator" id="spinner-diff">Calcul…</span>
+      </div>
+    </form>
+
+    <div class="legend">
+      <span><span class="dot dot-added"></span> Ajouté</span>
+      <span><span class="dot dot-removed"></span> Supprimé</span>
+      <span><span class="dot dot-modified"></span> Modifié</span>
+      <span><span class="dot dot-normal"></span> Inchangé</span>
+    </div>
+    <div id="output-diff" class="output">
+      <p>Collez deux versions XML et cliquez sur Comparer.</p>
+    </div>
+  </div>
+
+</div><!-- .tab-content -->
+
+<script>
+function showTab(id, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

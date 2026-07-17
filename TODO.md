@@ -38,19 +38,24 @@
 
 ## Bloc 3 — Rendu visuel ladder
 
-- [ ] `crates/plcopen/src/renderer/svg.rs` : `LdNetwork` → SVG string
-  - Rails gauche/droit (lignes verticales)
-  - Contact NO `[ ]` et NF `[/]` (rectangle + diagonale)
-  - Bobine `( )` (ellipse)
-  - Fils horizontaux (connexions)
-  - Branches parallèles (segments verticaux)
-- [ ] `crates/plcopen/src/renderer/diff.rs` : deux networks → SVG avec highlights
-  - Rouge = supprimé, vert = ajouté, jaune = modifié
-- [ ] Endpoints Axum :
-  - `GET /api/v1/commits/{hash}/pous`               → liste des POUs
-  - `GET /api/v1/commits/{hash}/pou/{name}/ladder`  → SVG
-  - `GET /api/v1/diff/{h1}/{h2}/pou/{name}/ladder`  → SVG diff
-- [ ] Dashboard htmx : page d'affichage du ladder (iframe ou `<img src="...">`)
+### Livré (2026-07-17)
+- [x] `crates/plcopen/src/renderer/svg.rs` : `LdNetwork` → SVG string
+  - Rails gauche/droit, contact NO `[ ]` et NF `[/]`, bobine `( )` (pill shape)
+  - Fils horizontaux (connexions) + fils en L (branches verticales)
+  - Marqueurs de front (↑/↓), stockage bobine (S/R/M), bloc fonctionnel
+  - 4 tests unitaires (NO, NF, dimensions, colorisation)
+- [x] `crates/plcopen/src/renderer/diff.rs` : deux networks → SVG coloré
+  - Rouge = supprimé, vert = ajouté, jaune = modifié, noir = inchangé
+  - 4 tests unitaires (identiques, modifié, ajouté, supprimé)
+- [x] Endpoints Axum :
+  - `POST /api/v1/render/ladder`              → SVG stateless (formulaire htmx)
+  - `POST /api/v1/render/ladder-diff`         → SVG diff stateless
+  - `POST /api/v1/snapshots`                  → stockage XML PLCopen en DB
+  - `GET  /api/v1/snapshots/{hash}/pous`      → liste des POUs (JSON)
+  - `GET  /api/v1/snapshots/{hash}/pou/{name}/ladder?network=N` → SVG
+  - `GET  /api/v1/diff/{h1}/{h2}/pou/{name}/ladder?network=N`  → SVG diff
+- [x] Migration `0002_plcopen_snapshots.sql`
+- [x] Dashboard htmx (`GET /`) : onglet Afficher + onglet Diff
 
 ---
 

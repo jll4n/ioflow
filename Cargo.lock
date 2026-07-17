@@ -212,6 +212,7 @@ dependencies = [
  "axum",
  "chrono",
  "dotenvy",
+ "plcopen",
  "serde",
  "serde_json",
  "shared",

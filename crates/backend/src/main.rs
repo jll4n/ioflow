@@ -1,4 +1,4 @@
-use axum::{routing::get, Router};
+use axum::{response::Html, routing::get, Router};
 use sqlx::PgPool;
 use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -38,6 +38,7 @@ async fn main() {
     let state = AppState { db: pool };
 
     let app = Router::new()
+        .route("/", get(|| async { Html(include_str!("../../../web/templates/dashboard.html")) }))
         .route("/health", get(|| async { "ok" }))
         .nest("/api/v1", routes::router())
         .with_state(state);
