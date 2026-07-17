@@ -61,10 +61,9 @@ width="{vw}" height="{vh}" font-family="monospace" font-size="{FONT}">"#
     if let Some(name) = &network.name {
         write!(
             s,
-            r#"<text x="{}" y="{}" fill="{}" font-size="9">{}</text>"#,
+            r##"<text x="{}" y="{}" fill="#999" font-size="9">{}</text>"##,
             vx + 2,
             vy + 9,
-            "#999",
             xml_esc(name)
         )
         .unwrap();
