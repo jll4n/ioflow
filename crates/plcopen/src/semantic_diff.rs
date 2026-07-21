@@ -174,7 +174,10 @@ fn network_key(net: &LdNetwork) -> String {
         .map(|e| match e {
             LdElement::Contact(c) => format!("C:{}:{}:{:?}", c.variable, c.negated, c.edge),
             LdElement::Coil(c) => {
-                format!("L:{}:{}:{:?}:{:?}", c.variable, c.negated, c.storage, c.edge)
+                format!(
+                    "L:{}:{}:{:?}:{:?}",
+                    c.variable, c.negated, c.storage, c.edge
+                )
             }
             LdElement::Block(b) => format!("B:{}", b.type_name),
             LdElement::LeftPowerRail(_) => "LR".into(),

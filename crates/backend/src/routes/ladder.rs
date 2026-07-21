@@ -6,9 +6,11 @@ use axum::{
     Form, Json, Router,
 };
 use plcopen::{
-    renderer::{diff::{render_diff, render_diff_columns}, svg::render_network},
-    semantic_diff,
-    Body, LdNetwork, Project,
+    renderer::{
+        diff::{render_diff, render_diff_columns},
+        svg::render_network,
+    },
+    semantic_diff, Body, LdNetwork, Project,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::Row as _;
@@ -22,8 +24,14 @@ pub fn router() -> Router<AppState> {
         // Endpoints sans état (dashboard htmx)
         .route("/render/ladder", post(render_ladder_form))
         .route("/render/ladder-diff", post(render_ladder_diff_form))
-        .route("/render/ladder-diff-side", post(render_ladder_diff_side_form))
-        .route("/render/plc-semantic-diff", post(render_plc_semantic_diff_form))
+        .route(
+            "/render/ladder-diff-side",
+            post(render_ladder_diff_side_form),
+        )
+        .route(
+            "/render/plc-semantic-diff",
+            post(render_plc_semantic_diff_form),
+        )
         // Endpoints basés sur les snapshots en base
         .route("/snapshots", post(create_snapshot))
         .route("/snapshots/:hash/pous", get(list_pous))
@@ -436,7 +444,9 @@ fn semantic_diff_html(diff: &semantic_diff::PlcDiff) -> String {
             html.push_str(&format!("<li class=\"removed\">− réseau {id}</li>"));
         }
         for id in &pou_diff.networks_modified {
-            html.push_str(&format!("<li class=\"modified\">~ réseau {id} modifié</li>"));
+            html.push_str(&format!(
+                "<li class=\"modified\">~ réseau {id} modifié</li>"
+            ));
         }
         html.push_str("</ul></div>");
     }
