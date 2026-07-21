@@ -67,6 +67,35 @@ fn content_key(elem: &LdElement) -> String {
     }
 }
 
+/// Rendu deux colonnes : SVG de A (éléments supprimés en rouge/modifiés en jaune)
+/// et SVG de B (éléments ajoutés en vert/modifiés en jaune).
+pub fn render_diff_columns(a: &LdNetwork, b: &LdNetwork) -> (String, String) {
+    let a_keys: HashMap<u32, String> = a
+        .elements
+        .iter()
+        .map(|e| (element_local_id(e), content_key(e)))
+        .collect();
+    let b_keys: HashMap<u32, String> = b
+        .elements
+        .iter()
+        .map(|e| (element_local_id(e), content_key(e)))
+        .collect();
+
+    let svg_a = render_network_colored(a, &|id| match (a_keys.get(&id), b_keys.get(&id)) {
+        (Some(_), None) => ElemColor::Removed,
+        (Some(ak), Some(bk)) if ak != bk => ElemColor::Modified,
+        _ => ElemColor::Normal,
+    });
+
+    let svg_b = render_network_colored(b, &|id| match (a_keys.get(&id), b_keys.get(&id)) {
+        (None, Some(_)) => ElemColor::Added,
+        (Some(ak), Some(bk)) if ak != bk => ElemColor::Modified,
+        _ => ElemColor::Normal,
+    });
+
+    (svg_a, svg_b)
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]

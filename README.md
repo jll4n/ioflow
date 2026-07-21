@@ -65,12 +65,12 @@ communiquer avec lui via JSON newline-delimited sur stdin/stdout. Voir
 | Crate | Rôle |
 |---|---|
 | `shared` | Types communs agent ↔ backend : `Job`, `JobStatus`, `JobResult`, `Diagnostic`, protocoles HTTP et IPC |
-| `backend` | API Axum + sqlx : enregistrement d'agents, polling de jobs (`FOR UPDATE SKIP LOCKED`), mise à jour de statut/diagnostics |
+| `backend` | API Axum + sqlx : enregistrement d'agents, polling de jobs (`FOR UPDATE SKIP LOCKED`), mise à jour de statut/diagnostics, endpoints ladder/diff |
 | `agent` | Daemon x64 : registration au démarrage, polling toutes les 5 s, orchestration du `com-bridge`, remontée des résultats |
 | `com-bridge` | Binaire x86 : reçoit des commandes JSON (Ping / OpenProject / Build / CloseProject), exécute les appels COM/UDE |
-| `plcopen` | Parseur PLCopenXML (IEC 61131-3 TC6) : types Rust pour LD, FBD, ST, IL, SFC + désérialisation |
-| `stu-vcs` | Bibliothèque VCS local pour fichiers `.stu` : store contenu-adressé SHA-256, modèle commit, diff |
-| `cli` | Binaire `ioflow` : 6 commandes VCS (init, snapshot, log, show, diff, restore) |
+| `plcopen` | Parseur PLCopenXML (IEC 61131-3 TC6) : types Rust pour LD, FBD, ST, IL, SFC + désérialisation + renderer SVG + diff sémantique |
+| `stu-vcs` | Bibliothèque VCS local pour fichiers `.stu` : store contenu-adressé SHA-256, modèle commit, diff textuel et hash |
+| `cli` | Binaire `ioflow` : 7 commandes VCS (init, snapshot, log, show, diff, restore, status, config) |
 
 ---
 
@@ -112,19 +112,26 @@ ioflow status mon_projet.stu            # compare contre HEAD sans committer
 Exemple de sortie `ioflow diff` :
 
 ```
-Snapshot a3f2c1 → b7e94d  (2026-07-14 10:32 → 2026-07-14 14:05)
+Diff a3f2c1 → b7e94d
+     2026-07-14 10:32 → 2026-07-14 14:05
 
-Fichiers modifiés :
-  ~ Project_Settings.xso
-  ~ backend/gen/asm_son/code_section_001.asm
-  ~ ASPROG.db  (binaire propriétaire, 48 KB → 51 KB)
-  = Project_Definition.xpdf  (chiffré, hash inchangé)
+  ~ Project_Settings.xso [XML paramètres]  1.2 KB → 1.3 KB
+    --- a/Project_Settings.xso
+    +++ b/Project_Settings.xso
+    @@ -12,1 +12,1 @@
+    -  <entryvalue ident="unity.NbWarnings" value="500">
+    +  <entryvalue ident="unity.NbWarnings" value="200">
+  ~ backend/gen/asm_son/code_section_001.asm [assembleur généré]  48.0 KB → 51.2 KB
+    --- a/backend/gen/asm_son/code_section_001.asm
+    +++ b/backend/gen/asm_son/code_section_001.asm
+    @@ ... @@
+    ...
+  ~ ASPROG.db [base propriétaire eXc]  48.0 KB → 51.2 KB
 
---- Project_Settings.xso
-+++ Project_Settings.xso
--  <entryvalue ident="unity.NbWarnings" value="500">
-+  <entryvalue ident="unity.NbWarnings" value="200">
+1 modifié(s), 0 ajouté(s), 0 supprimé(s)
 ```
+
+Pour les fichiers `.xso` et `.asm`, le diff textuel unifié est affiché inline (couleurs ANSI). Les binaires propriétaires (`*.db`, `*.xpdf`) n'affichent que la variation de taille.
 
 ### Modèle objet interne
 
@@ -138,12 +145,34 @@ Commit  = JSON { parent, tree, message, author, timestamp }
 
 ## Endpoints backend (API v1)
 
+### Agent / jobs
+
 | Méthode | Route | Description |
 |---|---|---|
 | `GET` | `/health` | Health check |
 | `POST` | `/api/v1/agents/register` | Enregistrement d'un agent |
 | `GET` | `/api/v1/jobs/poll` | Prochain job en file (polling agent) |
 | `POST` | `/api/v1/jobs/{id}/status` | Mise à jour du statut / résultat d'un job |
+
+### Ladder / diff (stateless — dashboard htmx)
+
+| Méthode | Route | Description |
+|---|---|---|
+| `POST` | `/api/v1/render/ladder` | `{xml, pou, network}` → SVG |
+| `POST` | `/api/v1/render/ladder-diff` | `{xml_a, xml_b, pou, network}` → SVG diff fusionné |
+| `POST` | `/api/v1/render/ladder-diff-side` | idem → HTML deux colonnes (A rouge / B vert) |
+| `POST` | `/api/v1/render/plc-semantic-diff` | `{xml_a, xml_b}` → HTML diff sémantique |
+
+### Snapshots / diff (DB-backed)
+
+| Méthode | Route | Description |
+|---|---|---|
+| `POST` | `/api/v1/snapshots` | Stocke un XML PLCopen indexé par `commit_hash` |
+| `GET` | `/api/v1/snapshots/{hash}/pous` | Liste JSON des POUs |
+| `GET` | `/api/v1/snapshots/{hash}/pou/{name}/ladder` | SVG d'un réseau |
+| `GET` | `/api/v1/diff/{h1}/{h2}/pou/{name}/ladder` | SVG diff fusionné |
+| `GET` | `/api/v1/diff/{h1}/{h2}/pou/{name}/ladder/side` | HTML deux colonnes |
+| `GET` | `/api/v1/diff/{h1}/{h2}/semantic` | JSON `PlcDiff` (POUs/variables/réseaux) |
 
 ---
 
@@ -227,26 +256,33 @@ utile pour développer sans Control Expert installé.
 - [x] Crate `stu-vcs` (lib) — parsing STU ZIP, store SHA-256, modèle commit
 - [x] `ioflow init` + `ioflow snapshot` (avec `--export` PLCopenXML optionnel)
 - [x] `ioflow log` + `ioflow show`
-- [x] `ioflow diff` (hash-level, taille avant/après, étiquettes par type)
+- [x] `ioflow diff` — hash-level + diff textuel unifié ANSI pour `.xso` et `.asm`
 - [x] `ioflow restore`
 - [x] `ioflow status` — compare un STU local contre HEAD (calcul éphémère, store non modifié)
 - [x] `ioflow config --name` — configure l'auteur dans `.ioflow/config.toml`
 - [x] 25 tests d'intégration (`tests/vcs.rs`) — fixture ZIP synthétique
-- [x] `rustfmt.toml` à la racine — fin des allers-retours CI fmt
-- [ ] Diff textuel `.xso` et `.asm` (crate `similar`)
+- [x] `rustfmt.toml` à la racine
 
-### Parseur PLCopenXML (`plcopen`) — livré
+### Parseur PLCopenXML et renderer (`plcopen`) — livré
 - [x] Types complets : `Project`, `Pou`, `Interface`, `Variable`, `DataTypeRef`
 - [x] Corps LD complet : contacts NO/NF, bobines SET/RESET, blocs fonctionnels
 - [x] Corps ST/IL : texte brut ; FBD/SFC : stubs
-- [x] 4 tests unitaires avec fixture XML
-- [ ] Renderer SVG : `LdNetwork` → SVG (rendu visuel ladder)
-- [ ] Renderer diff : deux networks → SVG avec highlights rouge/vert
+- [x] Renderer SVG : `LdNetwork → SVG` avec tous les symboles IEC 61131-3 LD
+- [x] Renderer diff fusionné : `render_diff` → SVG coloré (rouge/vert/jaune)
+- [x] Renderer diff deux colonnes : `render_diff_columns` → `(svg_a, svg_b)`
+- [x] Diff sémantique : `semantic_diff::diff_projects` → POUs/variables/réseaux
+- [x] 16 tests unitaires (parser, renderer, diff, semantic_diff)
+
+### Dashboard htmx — livré
+- [x] Onglet **Afficher** — rendu SVG d'un réseau à la volée
+- [x] Onglet **Diff visuel** — vue fusionnée ou côte à côte (toggle)
+- [x] Onglet **Diff sémantique** — liste colorée des POUs/variables/réseaux modifiés
 
 ### Backlog
 - [ ] Appels COM/UDE réels (nécessite UDE installé sur machine de test)
-- [ ] Dashboard web (htmx) avec rendu ladder
 - [ ] Auth (sessions + argon2)
+- [ ] `GET /api/v1/projects` CRUD projets
+- [ ] CI PostgreSQL dans GitHub Actions (`SQLX_OFFLINE` ou DB de test)
 
 ### Inconnues techniques
 
@@ -267,5 +303,7 @@ utile pour développer sans Control Expert installé.
 - **roxmltree** — parseur DOM pour PLCopenXML
 - **sha2 / hex** — hashing SHA-256 (VCS)
 - **zip** — lecture/écriture archives STU
+- **similar** — diff textuel unifié (`.xso`, `.asm`)
 - **clap** — CLI `ioflow`
+- **htmx 2.x** — dashboard frontend sans JS framework
 - **GitHub Actions** — CI (fmt + clippy + tests Linux, check Windows i686)

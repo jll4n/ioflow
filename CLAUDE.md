@@ -337,23 +337,28 @@ ioflow/
 - [x] CLI `ioflow` : init, snapshot, log, show, diff, restore, status, config
 - [x] 25 tests d'intégration `stu-vcs` (fixture ZIP synthétique)
 - [x] `rustfmt.toml` à la racine (`max_width = 100`)
-- [x] ADR 001 à 010 dans `docs/decisions/`
+- [x] ADR 001 à 011 dans `docs/decisions/`
 - [x] `TODO.md` à la racine
 - [x] Backend : `AppState { db: PgPool }`, migrations auto au démarrage
 - [x] `GET /api/v1/jobs/poll` — transaction `FOR UPDATE SKIP LOCKED`
 - [x] `POST /api/v1/jobs/{id}/status` — UPDATE + INSERT diagnostics
 - [x] `POST /api/v1/agents/register` — UPSERT (org_id fourni par l'agent)
 - [x] Agent : `Config` (AGENT_ID, ORG_ID, BACKEND_URL), registration au démarrage, agent_id réel dans les résultats
+- [x] Renderer SVG ladder : `LdNetwork → SVG` (contacts NO/NF, bobines, blocs, rails, fils)
+- [x] Renderer diff fusionné : `render_diff` → SVG coloré (rouge/vert/jaune)
+- [x] Dashboard htmx : onglets Afficher + Diff visuel (toggle fusionné/colonnes) + Diff sémantique
+- [x] Diff textuel `.xso` et `.asm` (crate `similar`, patch unifié ANSI dans CLI)
+- [x] Diff sémantique PLCopenXML : `plcopen::semantic_diff` — POUs/variables/réseaux
+- [x] Vue deux colonnes : `render_diff_columns` → `(svg_a, svg_b)` + endpoint dédié
+- [x] ADR 012 — Bloc 5 diff textuel et sémantique
 
 ### En cours / prochaine itération
 
-- [ ] Diff textuel `.xso` et `.asm` (crate `similar`)
+- [ ] CRUD projets (`GET /api/v1/projects`)
+- [ ] CI PostgreSQL dans GitHub Actions (DB de test ou `SQLX_OFFLINE`)
 
 ### Backlog (post-VCS local)
-- [ ] Persistance DB dans le backend (routes actuellement stubées)
 - [ ] Appels COM/UDE réels (nécessite UDE sur machine de test)
-- [ ] Renderer SVG ladder (`plcopen`)
-- [ ] Dashboard web (htmx)
 - [ ] Auth (sessions + argon2)
 - [ ] Spike : PLCopenXML sur Control Expert (vs. Machine Expert)
 - [ ] Validation marché : entretiens avec 5-10 intégrateurs/bureaux d'études

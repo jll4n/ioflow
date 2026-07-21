@@ -8,7 +8,7 @@ pub mod stu;
 pub mod tree;
 
 pub use commit::Commit;
-pub use diff::{diff_trees, file_label, FileChange};
+pub use diff::{diff_trees, file_label, is_text_diffable, text_diff, FileChange};
 pub use error::VcsError;
 pub use hash::{hash_bytes, short, Hash};
 pub use repo::Repo;

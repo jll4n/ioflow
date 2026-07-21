@@ -11,7 +11,7 @@
       font-family: 'Cascadia Code', 'Fira Mono', monospace;
       background: #f8f9fa;
       color: #1a1a1a;
-      max-width: 1100px;
+      max-width: 1200px;
       margin: 0 auto;
       padding: 24px 16px;
     }
@@ -38,6 +38,11 @@
       padding: 7px 18px; font-size: 0.9rem; cursor: pointer;
     }
     button:hover { background: #333; }
+    button.secondary {
+      background: #e5e7eb; color: #1a1a1a;
+    }
+    button.secondary:hover { background: #d1d5db; }
+    button.secondary.active { background: #1a1a1a; color: white; }
 
     .output {
       border: 1px solid #ddd; border-radius: 4px;
@@ -74,6 +79,20 @@
 
     .htmx-indicator { display: none; color: #888; font-size: 0.8rem; }
     .htmx-request .htmx-indicator { display: inline; }
+
+    /* Diff sémantique */
+    .sem-diff { font-size: 0.85rem; }
+    .sem-row { padding: 6px 10px; border-radius: 3px; margin-bottom: 4px; }
+    .sem-row.added   { background: #dcfce7; border-left: 3px solid #16a34a; }
+    .sem-row.removed { background: #fee2e2; border-left: 3px solid #dc2626; }
+    .sem-row.modified{ background: #fef9c3; border-left: 3px solid #d97706; }
+    .sem-row ul { margin: 4px 0 0 0; padding-left: 20px; }
+    .sem-row li.added   { color: #15803d; }
+    .sem-row li.removed { color: #b91c1c; }
+    .sem-row li.modified{ color: #92400e; }
+    .sem-sym { font-weight: bold; margin-right: 6px; }
+
+    .view-toggle { display: flex; gap: 4px; margin-bottom: 10px; }
   </style>
 </head>
 <body>
@@ -83,7 +102,8 @@
 
 <div class="tabs">
   <div class="tab active" onclick="showTab('single', this)">Afficher</div>
-  <div class="tab" onclick="showTab('diff', this)">Diff</div>
+  <div class="tab" onclick="showTab('diff', this)">Diff visuel</div>
+  <div class="tab" onclick="showTab('semantic', this)">Diff sémantique</div>
 </div>
 
 <div class="tab-content">
@@ -117,7 +137,7 @@
     </div>
   </div>
 
-  <!-- ═══ TAB : diff ═══ -->
+  <!-- ═══ TAB : diff visuel ═══ -->
   <div id="tab-diff" class="tab-panel">
     <h2>Diff visuel entre deux versions</h2>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:10px">
@@ -130,11 +150,7 @@
         <textarea name="xml_b" form="form-diff" placeholder="PLCopen XML — version B…"></textarea>
       </div>
     </div>
-    <form id="form-diff"
-          hx-post="/api/v1/render/ladder-diff"
-          hx-target="#output-diff"
-          hx-swap="innerHTML"
-          hx-indicator="#spinner-diff">
+    <form id="form-diff">
       <div class="form-row">
         <div>
           <label>POU</label>
@@ -144,7 +160,18 @@
           <label>Réseau n°</label>
           <input type="number" name="network" value="0" min="0"/>
         </div>
-        <button type="submit">Comparer ▶</button>
+        <div class="view-toggle">
+          <button type="button" id="btn-merged" class="secondary active"
+                  onclick="setDiffMode('merged')">Vue fusionnée</button>
+          <button type="button" id="btn-side" class="secondary"
+                  onclick="setDiffMode('side')">Côte à côte</button>
+        </div>
+        <button type="submit" id="btn-diff-submit"
+                hx-post="/api/v1/render/ladder-diff"
+                hx-target="#output-diff"
+                hx-swap="innerHTML"
+                hx-indicator="#spinner-diff"
+                hx-include="#form-diff">Comparer ▶</button>
         <span class="htmx-indicator" id="spinner-diff">Calcul…</span>
       </div>
     </form>
@@ -160,6 +187,37 @@
     </div>
   </div>
 
+  <!-- ═══ TAB : diff sémantique ═══ -->
+  <div id="tab-semantic" class="tab-panel">
+    <h2>Diff sémantique PLCopen</h2>
+    <p style="font-size:.82rem;color:#666;margin-top:0">
+      Compare deux projets et liste les POUs et variables ajoutés, supprimés ou modifiés.
+    </p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:10px">
+      <div>
+        <label><strong>Version A</strong> (avant)</label>
+        <textarea name="xml_a" form="form-semantic" placeholder="PLCopen XML — version A…"></textarea>
+      </div>
+      <div>
+        <label><strong>Version B</strong> (après)</label>
+        <textarea name="xml_b" form="form-semantic" placeholder="PLCopen XML — version B…"></textarea>
+      </div>
+    </div>
+    <form id="form-semantic"
+          hx-post="/api/v1/render/plc-semantic-diff"
+          hx-target="#output-semantic"
+          hx-swap="innerHTML"
+          hx-indicator="#spinner-semantic">
+      <div class="form-row">
+        <button type="submit">Analyser ▶</button>
+        <span class="htmx-indicator" id="spinner-semantic">Analyse…</span>
+      </div>
+    </form>
+    <div id="output-semantic" class="output">
+      <p>Collez deux versions XML et cliquez sur Analyser.</p>
+    </div>
+  </div>
+
 </div><!-- .tab-content -->
 
 <script>
@@ -168,6 +226,20 @@ function showTab(id, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + id).classList.add('active');
   el.classList.add('active');
+}
+
+var diffMode = 'merged';
+
+function setDiffMode(mode) {
+  diffMode = mode;
+  document.getElementById('btn-merged').classList.toggle('active', mode === 'merged');
+  document.getElementById('btn-side').classList.toggle('active', mode === 'side');
+
+  var endpoint = mode === 'side'
+    ? '/api/v1/render/ladder-diff-side'
+    : '/api/v1/render/ladder-diff';
+  document.getElementById('btn-diff-submit').setAttribute('hx-post', endpoint);
+  htmx.process(document.getElementById('btn-diff-submit'));
 }
 </script>
 </body>

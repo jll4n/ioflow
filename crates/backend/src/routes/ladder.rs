@@ -6,7 +6,8 @@ use axum::{
     Form, Json, Router,
 };
 use plcopen::{
-    renderer::{diff::render_diff, svg::render_network},
+    renderer::{diff::{render_diff, render_diff_columns}, svg::render_network},
+    semantic_diff,
     Body, LdNetwork, Project,
 };
 use serde::{Deserialize, Serialize};
@@ -21,11 +22,15 @@ pub fn router() -> Router<AppState> {
         // Endpoints sans état (dashboard htmx)
         .route("/render/ladder", post(render_ladder_form))
         .route("/render/ladder-diff", post(render_ladder_diff_form))
+        .route("/render/ladder-diff-side", post(render_ladder_diff_side_form))
+        .route("/render/plc-semantic-diff", post(render_plc_semantic_diff_form))
         // Endpoints basés sur les snapshots en base
         .route("/snapshots", post(create_snapshot))
         .route("/snapshots/:hash/pous", get(list_pous))
         .route("/snapshots/:hash/pou/:name/ladder", get(get_ladder))
         .route("/diff/:h1/:h2/pou/:name/ladder", get(get_diff))
+        .route("/diff/:h1/:h2/pou/:name/ladder/side", get(get_diff_side))
+        .route("/diff/:h1/:h2/semantic", get(get_semantic_diff))
 }
 
 // ─── Formulaires htmx (sans base de données) ─────────────────────────────────
@@ -194,6 +199,91 @@ async fn get_diff(
     }
 }
 
+// ─── Vue deux colonnes (sans état) ───────────────────────────────────────────
+
+async fn render_ladder_diff_side_form(Form(body): Form<DiffForm>) -> Response {
+    let proj_a = match plcopen::parse_project(&body.xml_a) {
+        Ok(p) => p,
+        Err(e) => return html_err(&format!("XML A invalide : {e}")),
+    };
+    let proj_b = match plcopen::parse_project(&body.xml_b) {
+        Ok(p) => p,
+        Err(e) => return html_err(&format!("XML B invalide : {e}")),
+    };
+
+    match (
+        find_ld_network(&proj_a, &body.pou, body.network),
+        find_ld_network(&proj_b, &body.pou, body.network),
+    ) {
+        (Ok(na), Ok(nb)) => html_ok(side_by_side_html(render_diff_columns(na, nb))),
+        (Err(e), _) | (_, Err(e)) => html_err(&e),
+    }
+}
+
+// ─── Diff sémantique (sans état) ─────────────────────────────────────────────
+
+async fn render_plc_semantic_diff_form(Form(body): Form<DiffForm>) -> Response {
+    let proj_a = match plcopen::parse_project(&body.xml_a) {
+        Ok(p) => p,
+        Err(e) => return html_err(&format!("XML A invalide : {e}")),
+    };
+    let proj_b = match plcopen::parse_project(&body.xml_b) {
+        Ok(p) => p,
+        Err(e) => return html_err(&format!("XML B invalide : {e}")),
+    };
+
+    let diff = semantic_diff::diff_projects(&proj_a, &proj_b);
+    html_ok(semantic_diff_html(&diff))
+}
+
+// ─── Vue deux colonnes (depuis base) ─────────────────────────────────────────
+
+async fn get_diff_side(
+    State(state): State<AppState>,
+    Path((h1, h2, pou_name)): Path<(String, String, String)>,
+    Query(q): Query<NetworkQuery>,
+) -> Response {
+    let xml_a = match fetch_xml(&state, &h1).await {
+        Ok(x) => x,
+        Err((c, m)) => return (c, m).into_response(),
+    };
+    let xml_b = match fetch_xml(&state, &h2).await {
+        Ok(x) => x,
+        Err((c, m)) => return (c, m).into_response(),
+    };
+
+    let proj_a = match parse_or_err(&xml_a) {
+        Ok(p) => p,
+        Err(e) => return e.into_response(),
+    };
+    let proj_b = match parse_or_err(&xml_b) {
+        Ok(p) => p,
+        Err(e) => return e.into_response(),
+    };
+
+    match (
+        find_ld_network(&proj_a, &pou_name, q.network),
+        find_ld_network(&proj_b, &pou_name, q.network),
+    ) {
+        (Ok(na), Ok(nb)) => html_ok(side_by_side_html(render_diff_columns(na, nb))),
+        (Err(e), _) | (_, Err(e)) => html_err(&e),
+    }
+}
+
+// ─── Diff sémantique (depuis base) ───────────────────────────────────────────
+
+async fn get_semantic_diff(
+    State(state): State<AppState>,
+    Path((h1, h2)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let xml_a = fetch_xml(&state, &h1).await?;
+    let xml_b = fetch_xml(&state, &h2).await?;
+    let proj_a = parse_or_err(&xml_a)?;
+    let proj_b = parse_or_err(&xml_b)?;
+    let diff = semantic_diff::diff_projects(&proj_a, &proj_b);
+    Ok(Json(serde_json::to_value(&diff).unwrap_or_default()))
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 fn do_render(xml: &str, pou_name: &str, net_idx: usize) -> Result<String, String> {
@@ -272,6 +362,87 @@ fn svg_error(msg: &str) -> Response {
         svg,
     )
         .into_response()
+}
+
+fn html_ok(body: String) -> Response {
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        body,
+    )
+        .into_response()
+}
+
+fn html_err(msg: &str) -> Response {
+    let escaped = msg.replace('&', "&amp;").replace('<', "&lt;");
+    html_ok(format!(
+        "<p style=\"color:#dc2626;font-family:monospace;font-size:12px\">Erreur : {escaped}</p>"
+    ))
+}
+
+fn side_by_side_html((svg_a, svg_b): (String, String)) -> String {
+    format!(
+        r#"<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+  <div>
+    <p style="font-size:.8rem;color:#555;margin:0 0 4px"><strong>Version A</strong> — avant</p>
+    {svg_a}
+  </div>
+  <div>
+    <p style="font-size:.8rem;color:#555;margin:0 0 4px"><strong>Version B</strong> — après</p>
+    {svg_b}
+  </div>
+</div>"#
+    )
+}
+
+fn semantic_diff_html(diff: &semantic_diff::PlcDiff) -> String {
+    if !diff.has_changes() {
+        return "<p style=\"color:#666;font-family:monospace\">Aucun changement sémantique détecté.</p>".into();
+    }
+
+    let mut html = String::from("<div class=\"sem-diff\">");
+
+    for pou in &diff.pous_added {
+        html.push_str(&format!(
+            "<div class=\"sem-row added\"><span class=\"sem-sym\">+</span> POU ajouté : <strong>{pou}</strong></div>"
+        ));
+    }
+    for pou in &diff.pous_removed {
+        html.push_str(&format!(
+            "<div class=\"sem-row removed\"><span class=\"sem-sym\">−</span> POU supprimé : <strong>{pou}</strong></div>"
+        ));
+    }
+    for pou_diff in &diff.pous_modified {
+        html.push_str(&format!(
+            "<div class=\"sem-row modified\"><span class=\"sem-sym\">~</span> POU modifié : <strong>{}</strong><ul>",
+            pou_diff.name
+        ));
+        for v in &pou_diff.vars_added {
+            html.push_str(&format!(
+                "<li class=\"added\">+ var <code>{}</code> : <code>{}</code></li>",
+                v.name, v.data_type
+            ));
+        }
+        for v in &pou_diff.vars_removed {
+            html.push_str(&format!(
+                "<li class=\"removed\">− var <code>{}</code> : <code>{}</code></li>",
+                v.name, v.data_type
+            ));
+        }
+        for id in &pou_diff.networks_added {
+            html.push_str(&format!("<li class=\"added\">+ réseau {id}</li>"));
+        }
+        for id in &pou_diff.networks_removed {
+            html.push_str(&format!("<li class=\"removed\">− réseau {id}</li>"));
+        }
+        for id in &pou_diff.networks_modified {
+            html.push_str(&format!("<li class=\"modified\">~ réseau {id} modifié</li>"));
+        }
+        html.push_str("</ul></div>");
+    }
+
+    html.push_str("</div>");
+    html
 }
 
 fn db_err(e: sqlx::Error) -> (StatusCode, Json<serde_json::Value>) {

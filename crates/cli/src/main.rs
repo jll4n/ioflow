@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use chrono::Utc;
 use clap::{Parser, Subcommand};
 use stu_vcs::{
-    diff_trees, file_label, hash_bytes, short, Commit, FileChange, Repo, StuArchive, Tree,
+    diff_trees, file_label, hash_bytes, is_text_diffable, short, text_diff, Commit, FileChange,
+    Repo, StuArchive, Tree,
 };
 
 #[derive(Parser)]
@@ -260,8 +261,10 @@ fn cmd_diff(prefix1: String, prefix2: String) -> Result<(), Box<dyn std::error::
                 old_hash,
                 new_hash,
             } => {
-                let old_size = repo.objects.read(old_hash).map(|d| d.len()).unwrap_or(0);
-                let new_size = repo.objects.read(new_hash).map(|d| d.len()).unwrap_or(0);
+                let old_data = repo.objects.read(old_hash).unwrap_or_default();
+                let new_data = repo.objects.read(new_hash).unwrap_or_default();
+                let old_size = old_data.len();
+                let new_size = new_data.len();
                 println!(
                     "  ~ {} [{}]  {} → {}",
                     path,
@@ -269,6 +272,20 @@ fn cmd_diff(prefix1: String, prefix2: String) -> Result<(), Box<dyn std::error::
                     human_size(old_size),
                     human_size(new_size),
                 );
+                if is_text_diffable(path) {
+                    if let Some(patch) = text_diff(&old_data, &new_data, path) {
+                        for line in patch.lines() {
+                            let prefix = line.chars().next().unwrap_or(' ');
+                            let color = match prefix {
+                                '+' => "\x1b[32m",
+                                '-' => "\x1b[31m",
+                                '@' => "\x1b[36m",
+                                _ => "\x1b[0m",
+                            };
+                            println!("    {color}{line}\x1b[0m");
+                        }
+                    }
+                }
             }
         }
     }

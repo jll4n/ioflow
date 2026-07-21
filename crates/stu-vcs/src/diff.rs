@@ -1,3 +1,5 @@
+use similar::TextDiff;
+
 use crate::hash::Hash;
 use crate::tree::Tree;
 
@@ -74,6 +76,30 @@ pub fn diff_trees(old: &Tree, new: &Tree) -> Vec<FileChange> {
 
     changes.sort_by(|a, b| a.path().cmp(b.path()));
     changes
+}
+
+/// Retourne `true` si le fichier peut faire l'objet d'un diff texte ligne à ligne.
+pub fn is_text_diffable(path: &str) -> bool {
+    let lower = path.to_lowercase();
+    lower.ends_with(".xso") || lower.ends_with(".asm")
+}
+
+/// Produit un diff unifié (format patch) entre deux versions d'un fichier texte.
+/// Retourne `None` si l'un des buffers n'est pas de l'UTF-8 valide ou si le contenu
+/// est identique.
+pub fn text_diff(old: &[u8], new: &[u8], path: &str) -> Option<String> {
+    let old_str = std::str::from_utf8(old).ok()?;
+    let new_str = std::str::from_utf8(new).ok()?;
+
+    let diff = TextDiff::from_lines(old_str, new_str);
+    if diff.ratio() >= 1.0 {
+        return None; // identiques
+    }
+    Some(
+        diff.unified_diff()
+            .header(&format!("a/{path}"), &format!("b/{path}"))
+            .to_string(),
+    )
 }
 
 /// Étiquette human-friendly selon l'extension du fichier.

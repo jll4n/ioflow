@@ -74,13 +74,25 @@
 
 ## Bloc 5 — Diff textuel et sémantique
 
-- [ ] Diff textuel ligne à ligne sur `.xso` (crate `similar`)
-- [ ] Diff textuel sur `.asm` (sections modifiées)
-- [ ] Diff sémantique PLCopenXML :
-  - Variables ajoutées / supprimées / renommées
-  - POUs ajoutés / supprimés
-  - Réseaux ladder ajoutés / supprimés / modifiés
-- [ ] Vue diff visuel ladder dans le dashboard (deux colonnes rouge/vert)
+### Livré (2026-07-21)
+- [x] Diff textuel ligne à ligne sur `.xso` et `.asm` (crate `similar`, format patch unifié)
+  - `is_text_diffable(path)` + `text_diff(old, new, path)` dans `stu-vcs`
+  - `ioflow diff` affiche le patch en couleur ANSI sous chaque fichier texte modifié
+- [x] Diff sémantique PLCopenXML (`plcopen::semantic_diff`) :
+  - `diff_projects(a, b) -> PlcDiff` — POUs ajoutés / supprimés / modifiés
+  - `PouDiff` — variables ajoutées / supprimées + réseaux ajoutés / supprimés / modifiés
+  - 4 tests unitaires
+- [x] Vue diff visuel ladder deux colonnes (`render_diff_columns` → `(svg_a, svg_b)`)
+  - Gauche : réseau A, supprimés en rouge, modifiés en jaune
+  - Droite : réseau B, ajoutés en vert, modifiés en jaune
+- [x] Dashboard mis à jour :
+  - Onglet **Diff visuel** : toggle "Vue fusionnée / Côte à côte"
+  - Onglet **Diff sémantique** : formulaire htmx + rendu HTML coloré
+- [x] Nouveaux endpoints backend :
+  - `POST /api/v1/render/ladder-diff-side` — deux colonnes SVG (stateless)
+  - `POST /api/v1/render/plc-semantic-diff` — résumé sémantique HTML (stateless)
+  - `GET  /api/v1/diff/:h1/:h2/pou/:name/ladder/side` — deux colonnes (DB)
+  - `GET  /api/v1/diff/:h1/:h2/semantic` — JSON `PlcDiff` (DB)
 
 ---
 
